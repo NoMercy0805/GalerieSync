@@ -18,18 +18,30 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.11.1
+
       - name: Restore stable debug keystore
         env:
           GALERIESYNC_DEBUG_KEYSTORE: ${{ secrets.GALERIESYNC_DEBUG_KEYSTORE }}
         run: |
-          mkdir -p "$HOME/.android"
-          if [ -n "$GALERIESYNC_DEBUG_KEYSTORE" ]; then
-            echo "$GALERIESYNC_DEBUG_KEYSTORE" | base64 --decode > "$HOME/.android/debug.keystore"
-          else
-            keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=GalerieSync Debug,O=GalerieSync,C=DE"
-            echo "::warning::GALERIESYNC_DEBUG_KEYSTORE secret is not configured. This build created a new key and will not provide stable update signatures."
+          if [ -z "$GALERIESYNC_DEBUG_KEYSTORE" ]; then
+            echo "::error::GALERIESYNC_DEBUG_KEYSTORE is missing. Refusing to create an APK with a temporary signing key."
+            exit 1
           fi
-      - run: gradle assembleDebug
+          mkdir -p "$HOME/.android"
+          echo "$GALERIESYNC_DEBUG_KEYSTORE" | base64 --decode > "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+          FINGERPRINT=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | grep "SHA1:" | awk '{print $2}')
+          echo "Signing key SHA1: $FINGERPRINT"
+
+      - name: Build debug APK
+        run: gradle assembleDebug
+
+      - name: Verify APK signature
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK" || { echo "::error::APK not found"; exit 1; }
+          keytool -printcert -jarfile "$APK" | grep "SHA1:" || { echo "::error::Could not verify APK signature"; exit 1; }
+
       - uses: actions/upload-artifact@v4
         with:
           name: GalerieSync-debug-apk
