@@ -26,17 +26,17 @@ jobs:
 
       - name: Set incrementing version code
         run: |
-          sed -i "s/versionCode [0-9]*/versionCode ${{ github.run_number }}/" app/build.gradle
+          sed -i "s/versionCode = [0-9]*/versionCode = ${{ github.run_number }}/" app/build.gradle.kts
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Build Release APK
+      - name: Build Debug APK
         id: build
         shell: bash
         run: |
           set -o pipefail
-          ./gradlew assembleRelease --stacktrace 2>&1 | tee build-output.log
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee build-output.log
         continue-on-error: true
 
       - name: Commit build log on failure
@@ -54,10 +54,10 @@ jobs:
         run: exit 1
 
       - name: Rename APK
-        run: mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/GalerieSync.apk
+        run: mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/GalerieSync.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: GalerieSync-APK
-          path: app/build/outputs/apk/release/GalerieSync.apk
+          path: app/build/outputs/apk/debug/GalerieSync.apk
