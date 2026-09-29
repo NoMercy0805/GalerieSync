@@ -1,30 +1,25 @@
-# NAS Photo Sync
+# GalerieSync 0.1.0 – erste Testversion
 
-Android-Projekt für eine Foto-Synchronisations-App mit Kotlin, Gradle und Jetpack Compose.
+Android-App für die Synchronisation von Fotos und Videos mit einem NAS über SMB.
 
-## Ziel
-
+## Enthalten
 - Handy → NAS
 - NAS → Handy
-- Bidirektional
-- SMB / WebDAV / SFTP als austauschbare NAS-Provider
-- UGREENlink als separater Remote-Provider
-- Room für Sync-Zustände
-- WorkManager für Hintergrund-Synchronisation
+- bidirektional (konservativ: keine automatischen Löschungen)
+- SMB/Windows-Shares, z. B. UGREEN NAS
+- lokale Medien aus MediaStore
+- Zielordner auf dem NAS
+- WLAN-only Option
+- sichere Speicherung des Passworts via Android Keystore/EncryptedSharedPreferences
+- manueller Sync
+- Hintergrund-Sync über WorkManager
+- GitHub Actions baut automatisch `app-debug.apk`
 
-## Aktueller Stand
+## Test
+1. APK installieren.
+2. Medienberechtigung erlauben.
+3. NAS-Host/IP, Share, Benutzer und Passwort eintragen.
+4. Zielordner festlegen, z. B. `GalerieSync`.
+5. Verbindung testen und anschließend synchronisieren.
 
-Version 0.1.0 enthält:
-- Android/Gradle-Grundprojekt
-- Compose-Startscreen
-- Sync-Domain-Modelle
-- Room-Datenmodell
-- Provider-/Sync-Engine-Abstraktion
-
-Noch nicht enthalten:
-- SMB-Implementierung
-- Fotoauswahl / MediaStore
-- sichere Credential-Speicherung
-- WorkManager Worker
-- UGREENlink-Integration
-- Konfliktauflösung
+Die erste Version spiegelt absichtlich keine Löschungen.

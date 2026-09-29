@@ -1,0 +1,11 @@
+package de.galeriesync.sync
+import android.content.ContentResolver
+import android.provider.MediaStore
+data class LocalMedia(val uri: android.net.Uri,val relativePath:String,val size:Long,val displayName:String)
+class MediaScanner(private val resolver:ContentResolver){
+ fun scan():List<LocalMedia>{val result=mutableListOf<LocalMedia>(); val collections=listOf(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+  for(collection in collections){val projection=arrayOf(MediaStore.MediaColumns._ID,MediaStore.MediaColumns.DISPLAY_NAME,MediaStore.MediaColumns.SIZE,MediaStore.MediaColumns.RELATIVE_PATH)
+   resolver.query(collection,projection,null,null,MediaStore.MediaColumns.DATE_MODIFIED+" DESC")?.use{c->val id=c.getColumnIndexOrThrow(MediaStore.MediaColumns._ID);val name=c.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME);val size=c.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE);val rel=c.getColumnIndex(MediaStore.MediaColumns.RELATIVE_PATH)
+    while(c.moveToNext()){val n=c.getString(name)?:continue;val r=if(rel>=0)c.getString(rel).orEmpty() else "";result+=LocalMedia(android.content.ContentUris.withAppendedId(collection,c.getLong(id)),r+n,c.getLong(size),n)}}}
+  return result.distinctBy{it.relativePath}}
+}
