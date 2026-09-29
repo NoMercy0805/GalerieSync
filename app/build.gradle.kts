@@ -4,9 +4,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 android {
-    namespace = "de.galeriesync"
+    namespace = "com.schiwy.galeriesync"
     compileSdk = 35
-    defaultConfig { applicationId = "de.galeriesync"; minSdk = 26; targetSdk = 35; versionCode = 2; versionName = "0.2.0" }
+    defaultConfig { applicationId = "com.schiwy.galeriesync"; minSdk = 26; targetSdk = 35; versionCode = 3; versionName = "0.2.1" }
     buildTypes { release { isMinifyEnabled = false; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro") } }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
