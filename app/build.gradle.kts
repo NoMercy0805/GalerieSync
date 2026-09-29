@@ -63,4 +63,15 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.10.5")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+
+    // WebDAV-Client (selbst auf OkHttp aufgebaut, PROPFIND/PUT/GET/DELETE/MKCOL)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Verschluesselte Speicherung der NAS-Zugangsdaten (Android Keystore)
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // Vorschaubilder in Ordner-/Galerie-Ansichten
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
 }

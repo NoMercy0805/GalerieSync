@@ -1,21 +1,31 @@
 package de.example.nasphotosync.data
 
+import android.content.Context
 import androidx.room.Database
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Entity(tableName = "sync_items")
-data class SyncItemEntity(
-    @PrimaryKey val key: String,
-    val phoneUri: String?,
-    val nasPath: String,
-    val size: Long,
-    val lastModified: Long,
-    val contentHash: String?,
-    val lastSyncedAt: Long?,
-    val status: String
+@Database(
+    entities = [NasConnectionEntity::class, SyncProfileEntity::class, SyncedFileEntity::class],
+    version = 1,
+    exportSchema = false
 )
+abstract class SyncDatabase : RoomDatabase() {
+    abstract fun nasConnectionDao(): NasConnectionDao
+    abstract fun syncProfileDao(): SyncProfileDao
+    abstract fun syncedFileDao(): SyncedFileDao
 
-@Database(entities = [SyncItemEntity::class], version = 1, exportSchema = false)
-abstract class SyncDatabase : RoomDatabase()
+    companion object {
+        @Volatile private var instance: SyncDatabase? = null
+
+        fun getInstance(context: Context): SyncDatabase {
+            return instance ?: synchronized(this) {
+                instance ?: Room.databaseBuilder(
+                    context.applicationContext,
+                    SyncDatabase::class.java,
+                    "nasphotosync.db"
+                ).fallbackToDestructiveMigration().build().also { instance = it }
+            }
+        }
+    }
+}
