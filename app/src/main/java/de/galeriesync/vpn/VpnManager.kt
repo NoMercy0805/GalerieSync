@@ -26,6 +26,9 @@ object VpnManager {
   return ssid==null || ssid !in SettingsStore(context).loadTrustedWifi()
  }
  fun permissionIntent(context:Context)=VpnService.prepare(context)
+ suspend fun connectForTest(context:Context,onStatus:(String)->Unit={}):Boolean=withContext(Dispatchers.IO){
+  val raw=SettingsStore(context).loadVpnConfig();require(raw.isNotBlank()){"Keine WireGuard-Konfiguration importiert."};require(VpnService.prepare(context)==null){"VPN-Freigabe fehlt."};val cfg=Config.parse(raw.byteInputStream());val b=backend?:GoBackend(context.applicationContext).also{backend=it};onStatus("WireGuard-Tunnel wird gestartet …");b.setState(tunnel,Tunnel.State.UP,cfg);repeat(20){if(b.getState(tunnel)==Tunnel.State.UP){onStatus("WireGuard-Tunnel aktiv ✓");return@withContext true};delay(250)};error("WireGuard-Tunnel wurde nicht aktiv.")
+ }
  suspend fun connectIfNeeded(context:Context,onStatus:(String)->Unit={}):Boolean=withContext(Dispatchers.IO){
   if(!needsVpn(context)){onStatus("Heim-WLAN · VPN nicht nötig");return@withContext false}
   val raw=SettingsStore(context).loadVpnConfig()
