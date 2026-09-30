@@ -67,10 +67,9 @@ jobs:
         run: |
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -f "$APK" || { echo "::error::APK not found"; exit 1; }
-          APK_FINGERPRINT=$(keytool -printcert -jarfile "$APK" 2>/dev/null | grep "SHA1:" | awk '{print $2}' || true)
-          if [ -z "$APK_FINGERPRINT" ]; then
-            APK_FINGERPRINT=$(keytool -printcert -jarfile "$APK" 2>/dev/null | grep "SHA-1:" | awk '{print $2}' || true)
-          fi
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          test -n "$APKSIGNER" || { echo "::error::apksigner not found"; exit 1; }
+          APK_FINGERPRINT=$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-1 digest: //p' | head -1 | tr '[:lower:]' '[:upper:]' | sed 's/../&:/g;s/:$//')
           echo "APK signature SHA1: $APK_FINGERPRINT"
           EXPECTED="62:2C:81:31:BD:82:81:AF:DB:AB:FC:4E:DA:8D:41:33:29:C5:E5:10"
           if [ "$APK_FINGERPRINT" != "$EXPECTED" ]; then
