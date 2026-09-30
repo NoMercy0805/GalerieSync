@@ -145,9 +145,10 @@ enum class Editor{NONE,NAS,SYNC}
  var folders by remember{mutableStateOf(emptyList<MediaFolder>())}
  val context=LocalContext.current
  LaunchedEffect(step){if(step==1)folders=withContext(Dispatchers.IO){MediaScanner(context.contentResolver).folderMedia()}}
- Column(Modifier.fillMaxSize().background(Navy)){
+ Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)){
   BackTitle(if(existing==null)"Neue Synchronisation" else "Synchronisation bearbeiten",onBack)
-  Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
+  Box(Modifier.weight(1f)){
+  Column(Modifier.fillMaxSize().padding(16.dp).padding(bottom=if(step==1)118.dp else 0.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
    if(connections.isEmpty()){
     CardBox{Text("Zuerst eine NAS hinzufügen",color=Color.White,fontWeight=FontWeight.Bold);Text("Synchronisationen benötigen eine gespeicherte NAS-Verbindung.",color=Muted)}
    }else if(step==0){
@@ -177,20 +178,10 @@ enum class Editor{NONE,NAS,SYNC}
       }
      }
     }
-    Field("Basisordner auf der NAS",p.remoteFolder,{p=p.copy(remoteFolder=it)})
-    if(p.sourceFolders.isNotEmpty()){
-     Text("Ordnerstruktur auf der NAS",color=Color.White,fontWeight=FontWeight.SemiBold)
-     p.sourceFolders.sorted().take(4).forEach{path->
-      val clean=path.trim('/')
-      val parts=clean.split('/').filter{it.isNotBlank()}
-      val rest=if(parts.firstOrNull()?.lowercase() in setOf("dcim","pictures","movies"))parts.drop(1).joinToString("/") else clean
-      Text("• "+p.remoteFolder.trimEnd('/')+"/Bilder & Videos/"+rest,color=Muted,fontSize=12.sp)
-     }
-     if(p.sourceFolders.size>4)Text("… und "+(p.sourceFolders.size-4)+" weitere",color=Muted,fontSize=12.sp)
-    }
-    Button(onClick={onSave(p.copy(profileName=p.profileName.ifBlank{syncProfileTitle(p.direction)}))},enabled=p.sourceFolders.isNotEmpty()&&p.remoteFolder.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text("Synchronisation speichern",color=if(p.sourceFolders.isNotEmpty()&&p.remoteFolder.isNotBlank())Color.White else Muted)}
+
    }
   }
+  if(step==1){Surface(modifier=Modifier.fillMaxWidth(),shadowElevation=12.dp,color=MaterialTheme.colorScheme.surface){Column(Modifier.padding(horizontal=16.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Field("Basisordner auf der NAS",p.remoteFolder,{p=p.copy(remoteFolder=it)});if(p.sourceFolders.isNotEmpty()){val first=p.sourceFolders.sorted().first();val clean=first.trim('/');val parts=clean.split('/').filter{it.isNotBlank()};val rest=if(parts.firstOrNull()?.lowercase() in setOf("dcim","pictures","movies"))parts.drop(1).joinToString("/") else clean;Text("NAS: "+p.remoteFolder.trimEnd('/')+"/Bilder & Videos/"+rest+(if(p.sourceFolders.size>1)"  +${p.sourceFolders.size-1} weitere" else ""),color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp,maxLines=1);};Button(onClick={onSave(p.copy(profileName=p.profileName.ifBlank{syncProfileTitle(p.direction)}))},enabled=p.sourceFolders.isNotEmpty()&&p.remoteFolder.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text("Synchronisation speichern")}}}}
  }
 }
 
