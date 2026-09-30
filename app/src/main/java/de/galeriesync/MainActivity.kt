@@ -237,3 +237,4 @@ private fun formatBytes(v:Long):String{val tb=v/1_099_511_627_776.0;return if(tb
 
 private fun folderGroupOrder(path:String):Int{val top=path.trim('/').substringBefore('/').lowercase();return when(top){"dcim"->0;"pictures"->1;"movies"->2 else->3}}
 private fun folderRelativeSortKey(path:String):String{val clean=path.trim('/');val parts=clean.split('/').filter{it.isNotBlank()};return if(parts.firstOrNull()?.lowercase() in setOf("dcim","pictures","movies"))parts.drop(1).joinToString("/") else clean}
+}
