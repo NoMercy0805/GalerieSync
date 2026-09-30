@@ -194,6 +194,7 @@ enum class Editor{NONE,NAS,SYNC}
    }
   }
  }
+ }
 }
 
 @Composable private fun DirectionCard(t:String,on:Boolean,click:()->Unit){Card(Modifier.fillMaxWidth().clickable{click()},shape=RoundedCornerShape(14.dp),colors=CardDefaults.cardColors(containerColor=if(on)Color(0xFF17466A) else Panel)){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(t,Modifier.weight(1f),fontWeight=FontWeight.SemiBold,color=Color.White);RadioButton(on,click)}}}
