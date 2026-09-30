@@ -252,10 +252,14 @@ enum class Editor{NONE,NAS,SYNC}
 private fun syncDirectionText(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektional"}
 private fun syncProfileTitle(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektionale Synchronisation"}
 @Composable private fun AutoSyncSettings(context:android.content.Context){
- val store=remember{SettingsStore(context)};var value by remember{mutableStateOf(store.loadAutoSyncValue().toString())};var unit by remember{mutableStateOf(store.loadAutoSyncUnit())};var saved by remember{mutableStateOf("")};var enabled by remember{mutableStateOf(store.loadAutoSyncEnabled())}
+ val store=remember{SettingsStore(context)};var value by remember{mutableStateOf(store.loadAutoSyncValue().toString())};var unit by remember{mutableStateOf(store.loadAutoSyncUnit())};var saved by remember{mutableStateOf("")};var enabled by remember{mutableStateOf(store.loadAutoSyncEnabled())};var network by remember{mutableStateOf(store.loadAutoSyncNetwork())};var charging by remember{mutableStateOf(store.loadAutoSyncCharging())}
  CardBox{
   Text("Hintergrund-Synchronisation",fontWeight=FontWeight.Bold,fontSize=18.sp)
   Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("Automatisch synchronisieren",fontWeight=FontWeight.SemiBold);Text(if(enabled)"Aktiv" else "Deaktiviert",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)};Switch(checked=enabled,onCheckedChange={on->enabled=on;store.saveAutoSyncEnabled(on);if(on){val raw=value.toLongOrNull()?:15L;val minutes=when(unit){"HOURS"->raw*60;"DAYS"->raw*1440;"WEEKS"->raw*10080;else->raw}.coerceAtLeast(15);schedule(context,minutes);saved="Automatische Synchronisation aktiviert"}else{WorkManager.getInstance(context).cancelUniqueWork("GalerieSync");saved="Automatische Synchronisation deaktiviert"}})};Text("Lege fest, wie oft aktive Profile automatisch geprüft werden.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)
+  Spacer(Modifier.height(8.dp))
+  Text("Netzwerk",fontWeight=FontWeight.SemiBold)
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("WIFI" to "Nur WLAN","ANY" to "WLAN + Mobilfunk").forEach{(v,label)->FilterChip(selected=network==v,onClick={network=v;store.saveAutoSyncNetwork(v)},label={Text(label)})}}
+  Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("Nur beim Laden",Modifier.weight(1f));Switch(checked=charging,onCheckedChange={charging=it;store.saveAutoSyncCharging(it)})}
   Spacer(Modifier.height(8.dp))
   OutlinedTextField(value=value,onValueChange={value=it.filter(Char::isDigit).take(4)},label={Text("Intervall")},singleLine=true,modifier=Modifier.fillMaxWidth())
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("MINUTES" to "Minuten","HOURS" to "Stunden","DAYS" to "Tage","WEEKS" to "Wochen").forEach{(v,label)->FilterChip(selected=unit==v,onClick={unit=v},label={Text(label)})}}
@@ -264,7 +268,7 @@ private fun syncProfileTitle(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS
   if(saved.isNotBlank())Text(saved,color=Green,fontSize=12.sp)
  }
 }
-fun schedule(context:android.content.Context,minutes:Long){val c=Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build();val r=PeriodicWorkRequestBuilder<SyncWorker>(minutes.coerceAtLeast(15),TimeUnit.MINUTES).setConstraints(c).build();WorkManager.getInstance(context).enqueueUniquePeriodicWork("GalerieSync",ExistingPeriodicWorkPolicy.UPDATE,r)}
+fun schedule(context:android.content.Context,minutes:Long){val store=SettingsStore(context);val network=if(store.loadAutoSyncNetwork()=="ANY")NetworkType.CONNECTED else NetworkType.UNMETERED;val c=Constraints.Builder().setRequiredNetworkType(network).setRequiresCharging(store.loadAutoSyncCharging()).build();val r=PeriodicWorkRequestBuilder<SyncWorker>(minutes.coerceAtLeast(15),TimeUnit.MINUTES).setConstraints(c).build();WorkManager.getInstance(context).enqueueUniquePeriodicWork("GalerieSync",ExistingPeriodicWorkPolicy.UPDATE,r)}
 
 private fun formatBytes(v:Long):String{val locale=java.util.Locale.GERMANY;return when{v>=1_099_511_627_776L->"%.2f TB".format(locale,v/1_099_511_627_776.0);v>=1_073_741_824L->"%.2f GB".format(locale,v/1_073_741_824.0);v>=1_048_576L->"%.1f MB".format(locale,v/1_048_576.0);v>=1_024L->"%.1f KB".format(locale,v/1_024.0);else->"$v B"}}
 
