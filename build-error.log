@@ -38,34 +38,12 @@ Starting a Gradle Daemon (subsequent builds will be faster)
 > Task :app:checkDebugDuplicateClasses
 > Task :app:mergeDebugNativeLibs
 
-> Task :app:compileDebugKotlin FAILED
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:81:510 Suspend function 'suspend fun disconnect(onStatus: (String) -> Unit = ...): Unit' should be called only from a coroutine or another suspend function.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:117:1209 Unresolved reference 'formatBytes'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:117:1241 Unresolved reference 'formatBytes'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:117:1271 Unresolved reference 'formatBytes'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1174 Unresolved reference 'formatBytes'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1204 Unresolved reference 'formatBytes'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:172:48 Unresolved reference 'folderGroupOrder'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:172:76 Unresolved reference 'folderRelativeSortKey'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:255:3 No value passed for parameter 'content'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:255:239 Unresolved reference 'schedule'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:255:387 Syntax error: Unexpected tokens (use ';' to separate expressions on the same line).
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:255:422 @Composable invocations can only happen from the context of a @Composable function
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:256:25 @Composable invocations can only happen from the context of a @Composable function
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:257:3 Syntax error: Expecting ')'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:261:1 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:263:1 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:264:1 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:264:254 Syntax error: Expecting '}'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/data/SettingsStore.kt:27:66 Syntax error: Expecting member declaration.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/data/SettingsStore.kt:27:67 Syntax error: Expecting member declaration.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/data/SettingsStore.kt:27:155 Syntax error: Expecting member declaration.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/data/SettingsStore.kt:27:156 Syntax error: Expecting member declaration.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/data/SettingsStore.kt:27:291 Syntax error: Expecting member declaration.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/data/SettingsStore.kt:27:292 Syntax error: Expecting member declaration.
+> Task :app:compileDebugKotlin
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/worker/SyncWorker.kt:33:7 Suspension functions can only be called within coroutine body.
 
+> Task :app:compileDebugKotlin FAILED
 > Task :app:mergeExtDexDebug
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790773905043.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790776872707.json
 
 FAILURE: Build failed with an exception.
 
@@ -269,5 +247,5 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	... 2 more
 
 
-BUILD FAILED in 2m 14s
+BUILD FAILED in 2m 13s
 24 actionable tasks: 24 executed
