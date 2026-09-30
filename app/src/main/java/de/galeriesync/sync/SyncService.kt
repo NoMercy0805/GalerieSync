@@ -50,17 +50,24 @@ class SyncService(private val context:Context){
      if(relative in remote&&smb.fileSize(target)==m.size){progressMutex.withLock{skipped++;processedBytes+=m.size;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Übersprungen: "+m.displayName))}}
      else if(settings.direction==SyncDirection.BIDIRECTIONAL&&relative in remote&&smb.fileSize(target)!=m.size&&smb.lastModified(target)>m.modified+2000L){progressMutex.withLock{skipped++;processedBytes+=m.size;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Konflikt: NAS-Version ist neuer · "+m.displayName))}}
      else try{
-      target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)}
-      val temp=target+".galeriesync-part";smb.delete(temp)
-      context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(temp)).use{dst->
-       val buffer=ByteArray(256*1024);var currentFileBytes=0L;var lastReported=0L
-       while(true){val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);currentFileBytes+=read;progressMutex.withLock{processedBytes+=read;if(currentFileBytes-lastReported>=1024){lastReported=currentFileBytes;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName))}}}
-       dst.flush()
-      }}}
-      if(smb.fileSize(temp)!=m.size)throw IOException("Größenprüfung fehlgeschlagen: "+m.displayName)
-      smb.move(temp,target)
+      var uploaded=false;var attempt=0;var uploadError:Throwable?=null
+      while(!uploaded&&attempt<3){attempt++;var attemptBytes=0L
+       try{
+        if(attempt>1){progressMutex.withLock{progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Verbindung wird wiederhergestellt · Versuch $attempt/3 · "+m.displayName))};kotlinx.coroutines.delay(1000L*attempt);smb.test()}
+        target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)}
+        val temp=target+".galeriesync-part";smb.delete(temp)
+        context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(temp)).use{dst->
+         val buffer=ByteArray(256*1024);var lastReported=0L
+         while(true){val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);attemptBytes+=read;progressMutex.withLock{processedBytes+=read;if(attemptBytes-lastReported>=1024){lastReported=attemptBytes;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName))}}}
+         dst.flush()
+        }}}
+        if(smb.fileSize(temp)!=m.size)throw IOException("Größenprüfung fehlgeschlagen")
+        smb.move(temp,target);uploaded=true
+       }catch(t:Throwable){uploadError=t;progressMutex.withLock{processedBytes=(processedBytes-attemptBytes).coerceAtLeast(0)};runCatching{smb.delete(target+".galeriesync-part")}}
+      }
+      if(!uploaded)throw IOException("Verbindung zur NAS während der Übertragung verloren.",uploadError)
       progressMutex.withLock{copied++;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Hochgeladen: "+m.displayName))}
-     }catch(t:Throwable){progressMutex.withLock{failed++;lastError=t.message?:t.javaClass.simpleName};throw IOException("SMB-Verbindung unterbrochen bei "+m.displayName+": "+(t.message?:t.javaClass.simpleName),t)}
+     }catch(t:Throwable){progressMutex.withLock{failed++;lastError="Datei: "+m.displayName+" · "+(t.message?:"SMB-Verbindung unterbrochen")};throw IOException("Synchronisation unterbrochen · Datei: "+m.displayName+" · Verbindung zur NAS während der Übertragung verloren.",t)}
     }
    }}.awaitAll()
   }
