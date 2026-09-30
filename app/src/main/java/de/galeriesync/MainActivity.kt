@@ -74,7 +74,7 @@ enum class Editor{NONE,NAS,SYNC}
  if(editor==Editor.NAS){NasEditor(editing?:NasSettings(),{editor=Editor.NONE},{saveNas(it);editor=Editor.NONE});return}
  if(editor==Editor.SYNC){SyncEditor(editing,nas,{editor=Editor.NONE},{saveProfile(it);editor=Editor.NONE});return}
  
- Scaffold(containerColor=Navy,bottomBar={NavigationBar(containerColor=Color(0xFF091F2D)){Tab.entries.forEach{t->NavigationBarItem(selected=tab==t,onClick={tab=t},icon={Text(t.icon,fontSize=20.sp)},label={Text(t.label,fontSize=10.sp)})}}}){pad->
+ Scaffold(containerColor=MaterialTheme.colorScheme.background,bottomBar={NavigationBar(containerColor=MaterialTheme.colorScheme.surface){Tab.entries.forEach{t->NavigationBarItem(selected=tab==t,onClick={tab=t},icon={Text(t.icon,fontSize=20.sp)},label={Text(t.label,fontSize=10.sp)})}}}){pad->
   Box(Modifier.padding(pad).fillMaxSize()){when(tab){
    Tab.HOME->Home(nas,profiles,status,running,syncCurrent,syncTotal,syncFile,{profiles.filter{it.enabled}.forEach{runProfile(it)}})
    Tab.NAS->NasList(nas,nasTestStates,nasStorage,{editing=null;editor=Editor.NAS},{editing=it;editor=Editor.NAS},{deleteNas(it)},{n->scope.launch{status="Teste Verbindung …";val result=runCatching{withContext(Dispatchers.IO){val smb=SmbProvider(n);smb.test();nasStorage=nasStorage+(n.id to smb.storageInfo())}};nasTestStates=nasTestStates+(n.id to result.isSuccess);status=result.fold({"Verbunden"},{"Fehler · "+(it.message?:"Unbekannt")})}})
@@ -84,8 +84,12 @@ enum class Editor{NONE,NAS,SYNC}
  }
 }
 
+@Composable private fun appBg()=MaterialTheme.colorScheme.background
+@Composable private fun appPanel()=MaterialTheme.colorScheme.surface
+@Composable private fun appText()=MaterialTheme.colorScheme.onSurface
+@Composable private fun appMuted()=MaterialTheme.colorScheme.onSurfaceVariant
 @Composable private fun Header(t:String,s:String?=null){Column(Modifier.fillMaxWidth().padding(20.dp,18.dp,20.dp,10.dp)){Text(t,fontSize=25.sp,fontWeight=FontWeight.Bold);s?.let{Text(it,color=Muted,fontSize=13.sp)}}}
-@Composable private fun CardBox(content:@Composable ColumnScope.()->Unit){Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(16.dp),content=content)}}
+@Composable private fun CardBox(content:@Composable ColumnScope.()->Unit){Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)){Column(Modifier.padding(16.dp),content=content)}}
 @Composable private fun Field(label:String,value:String,on:(String)->Unit,password:Boolean=false){OutlinedTextField(value,on,label={Text(label)},modifier=Modifier.fillMaxWidth(),singleLine=true,shape=RoundedCornerShape(12.dp),colors=OutlinedTextFieldDefaults.colors(focusedContainerColor=Panel,unfocusedContainerColor=Panel,focusedTextColor=Color.White,unfocusedTextColor=Color.White,focusedLabelColor=Blue,unfocusedLabelColor=Muted,focusedBorderColor=Blue,unfocusedBorderColor=Color(0xFF345568),cursorColor=Blue),visualTransformation=if(password)PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None)}
 @Composable private fun BackTitle(title:String,onBack:()->Unit){Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onBack){Text("‹",fontSize=30.sp,color=Blue)};Text(title,fontSize=22.sp,fontWeight=FontWeight.Bold,color=Color.White)}}
 
@@ -102,7 +106,7 @@ enum class Editor{NONE,NAS,SYNC}
 }
 
 @Composable private fun SyncProgressScreen(profile:NasSettings,current:Int,total:Int,file:String,status:String,onBack:()->Unit,onCancel:()->Unit){
- Column(Modifier.fillMaxSize().background(Navy)){BackTitle("Synchronisation",onBack);Column(Modifier.fillMaxSize().padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(18.dp)){
+ Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)){BackTitle("Synchronisation",onBack);Column(Modifier.fillMaxSize().padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(18.dp)){
   Spacer(Modifier.height(20.dp));Box(Modifier.size(170.dp),contentAlignment=Alignment.Center){CircularProgressIndicator(progress={if(total>0)current.toFloat()/total else 0f},modifier=Modifier.fillMaxSize(),strokeWidth=10.dp);Text("↻",fontSize=54.sp,color=Color.White)}
   Text("Synchronisiere …",fontSize=24.sp,fontWeight=FontWeight.Bold,color=Color.White);Text(if(total>0)"$current von $total Dateien" else "Dateien werden vorbereitet …",color=Muted)
   CardBox{Text(file.ifBlank{status.ifBlank{"Verbindung wird vorbereitet …"}},color=Color.White,fontWeight=FontWeight.SemiBold);Text(if(file.isBlank())status.ifBlank{"Warte …"} else "Wird synchronisiert …",color=if(status.contains("Fehler",true))MaterialTheme.colorScheme.error else Blue,fontSize=12.sp)}
@@ -233,7 +237,7 @@ enum class Editor{NONE,NAS,SYNC}
   if(message.isNotBlank())Text(message,color=if(message.contains("✓"))Green else Muted,fontSize=12.sp)
  }
 }
-@Composable private fun SettingsRow(icon:String,title:String,subtitle:String,onClick:()->Unit){Surface(Modifier.fillMaxWidth().clickable{onClick()},color=Panel){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(icon,fontSize=24.sp,color=Color.White);Spacer(Modifier.width(14.dp));Column(Modifier.weight(1f)){Text(title,color=Color.White,fontWeight=FontWeight.Bold);Text(subtitle,color=Muted,fontSize=12.sp)};Text("›",color=Color.White,fontSize=26.sp)}}}
+@Composable private fun SettingsRow(icon:String,title:String,subtitle:String,onClick:()->Unit){Surface(Modifier.fillMaxWidth().clickable{onClick()},color=MaterialTheme.colorScheme.surface){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(icon,fontSize=24.sp,color=Color.White);Spacer(Modifier.width(14.dp));Column(Modifier.weight(1f)){Text(title,color=Color.White,fontWeight=FontWeight.Bold);Text(subtitle,color=Muted,fontSize=12.sp)};Text("›",color=Color.White,fontSize=26.sp)}}}
 private fun syncDirectionText(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektional"}
 private fun syncProfileTitle(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektionale Synchronisation"}
 fun schedule(context:android.content.Context){val c=Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build();val r=PeriodicWorkRequestBuilder<SyncWorker>(15,TimeUnit.MINUTES).setConstraints(c).build();WorkManager.getInstance(context).enqueueUniquePeriodicWork("GalerieSync",ExistingPeriodicWorkPolicy.UPDATE,r)}
