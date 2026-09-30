@@ -37,6 +37,7 @@ import de.galeriesync.sync.MediaScanner
 import de.galeriesync.sync.SmbProvider
 import de.galeriesync.sync.SyncService
 import de.galeriesync.worker.SyncWorker
+import de.galeriesync.vpn.VpnManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -58,12 +59,13 @@ enum class Editor{NONE,NAS,SYNC}
  var tab by remember{mutableStateOf(Tab.HOME)};var editor by remember{mutableStateOf(Editor.NONE)};var settingsPage by remember{mutableStateOf<String?>(null)};var editing by remember{mutableStateOf<NasSettings?>(null)}
  var status by remember{mutableStateOf("Bereit")};var running by remember{mutableStateOf(false)};var syncCurrent by remember{mutableIntStateOf(0)};var syncTotal by remember{mutableIntStateOf(0)};var syncFile by remember{mutableStateOf("")};var syncJob by remember{mutableStateOf<Job?>(null)};var nasTestStates by remember{mutableStateOf<Map<String,Boolean>>(emptyMap())};val scope=rememberCoroutineScope()
  val permission=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){}
+ val vpnPermission=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){status=if(it.resultCode==android.app.Activity.RESULT_OK)"VPN-Freigabe erteilt ✓" else "VPN-Freigabe nicht erteilt"}
  LaunchedEffect(Unit){val p=if(Build.VERSION.SDK_INT>=33)arrayOf(Manifest.permission.READ_MEDIA_IMAGES,Manifest.permission.READ_MEDIA_VIDEO)else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE);if(p.any{ContextCompat.checkSelfPermission(context,it)!=PackageManager.PERMISSION_GRANTED})permission.launch(p)}
  fun saveNas(v:NasSettings){nas=(nas.filterNot{it.id==v.id}+v);store.saveConnections(nas)}
  fun deleteNas(v:NasSettings){nas=nas.filterNot{it.id==v.id};profiles=profiles.filterNot{it.host==v.host&&it.share==v.share};store.saveConnections(nas);store.saveProfiles(profiles)}
  fun saveProfile(v:NasSettings){profiles=profiles.filterNot{it.id==v.id}+v;store.saveProfiles(profiles)}
  BackHandler(enabled=editor!=Editor.NONE||settingsPage!=null){if(editor!=Editor.NONE){editor=Editor.NONE;editing=null}else settingsPage=null}
- fun runProfile(p:NasSettings){syncJob=scope.launch{running=true;syncCurrent=0;syncTotal=0;syncFile="";status="Synchronisiere "+p.profileName.ifBlank{"Profil"}+" …";val r=runCatching{SyncService(context).run(p){i,total,n->syncCurrent=i;syncTotal=total;syncFile=n;status=n}};status=r.fold({result->if(result.failed==0)"Fertig über ${result.transport} · ${result.copied} übertragen · ${result.skipped} übersprungen" else "SMB · ${result.copied} übertragen · ${result.failed} Fehler · ${result.lastError?:"Details unbekannt"}"},{"SMB-Fehler · "+(it.message?:"Unbekannt")});running=false;syncFile=""}}
+ fun runProfile(p:NasSettings){if(VpnManager.needsVpn(context)){val intent=VpnManager.permissionIntent(context);if(intent!=null){status="VPN-Freigabe erforderlich";vpnPermission.launch(intent);return}};syncJob=scope.launch{running=true;syncCurrent=0;syncTotal=0;syncFile="";var startedVpn=false;status="Synchronisiere "+p.profileName.ifBlank{"Profil"}+" …";val r=runCatching{startedVpn=VpnManager.connectIfNeeded(context){status=it};SyncService(context).run(p){i,total,n->syncCurrent=i;syncTotal=total;syncFile=n;status=n}};if(startedVpn)VpnManager.disconnect();status=r.fold({result->if(result.failed==0)"Fertig über ${if(startedVpn)"SMB + VPN" else result.transport} · ${result.copied} übertragen · ${result.skipped} übersprungen" else "SMB · ${result.copied} übertragen · ${result.failed} Fehler · ${result.lastError?:"Details unbekannt"}"},{"Verbindungsfehler · "+(it.message?:"Unbekannt")});running=false;syncFile=""}}
  if(editor==Editor.NAS){NasEditor(editing?:NasSettings(),{editor=Editor.NONE},{saveNas(it);editor=Editor.NONE});return}
  if(editor==Editor.SYNC){SyncEditor(editing,nas,{editor=Editor.NONE},{saveProfile(it);editor=Editor.NONE});return}
  if(running){SyncProgressScreen(profiles.firstOrNull{it.enabled}?:NasSettings(),syncCurrent,syncTotal,syncFile){syncJob?.cancel();running=false;status="Synchronisation abgebrochen";syncFile=""};return}
@@ -208,7 +210,7 @@ enum class Editor{NONE,NAS,SYNC}
  Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
   CardBox{
    Text("Heim-WLANs",color=Color.White,fontWeight=FontWeight.Bold,fontSize=18.sp)
-   Text("In diesen WLANs verbindet sich GalerieSync direkt per SMB. Außerhalb wird später automatisch das FRITZ!Box-VPN verwendet.",color=Muted,fontSize=12.sp)
+   Text("In diesen WLANs verbindet sich GalerieSync direkt per SMB. In allen anderen WLANs und über Mobilfunk wird automatisch das FRITZ!Box-VPN verwendet.",color=Muted,fontSize=12.sp)
    Spacer(Modifier.height(10.dp))
    Text(current?.let{"Aktuell verbunden: $it"}?:"Aktuelles WLAN nicht erkannt",color=if(current!=null)Green else Muted,fontWeight=FontWeight.SemiBold)
    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={current?.let{trusted=trusted+it;store.saveTrustedWifi(trusted);message="$it als Heim-WLAN gespeichert ✓"}?:refreshWifi()},modifier=Modifier.weight(1f)){Text(if(current!=null)"Dieses WLAN hinzufügen" else "WLAN erkennen",color=Color.White)}}
@@ -220,7 +222,7 @@ enum class Editor{NONE,NAS,SYNC}
    Text("Exportiere die WireGuard-Konfiguration in der FRITZ!Box und wähle anschließend einfach die .conf-Datei aus.",color=Muted,fontSize=12.sp)
    Spacer(Modifier.height(10.dp))
    Button(onClick={importConfig.launch(arrayOf("text/plain","application/octet-stream","*/*"))},modifier=Modifier.fillMaxWidth()){Text(if(config.isBlank())"WireGuard-Datei auswählen" else "Konfiguration ersetzen",color=Color.White)}
-   if(config.isNotBlank())TextButton(onClick={config="";store.saveVpnConfig("");message="VPN-Konfiguration entfernt"}){Text("VPN-Konfiguration entfernen",color=MaterialTheme.colorScheme.error)}
+   if(config.isNotBlank()){Button(onClick={val i=VpnManager.permissionIntent(context);if(i==null)message="VPN-Freigabe bereits erteilt ✓" else message="Starte einen Sync; Android fragt dann einmalig nach der VPN-Freigabe."},modifier=Modifier.fillMaxWidth()){Text("VPN-Bereitschaft prüfen",color=Color.White)};TextButton(onClick={config="";store.saveVpnConfig("");message="VPN-Konfiguration entfernt"}){Text("VPN-Konfiguration entfernen",color=MaterialTheme.colorScheme.error)}}
   }
   if(message.isNotBlank())Text(message,color=if(message.contains("✓"))Green else Muted,fontSize=12.sp)
  }
