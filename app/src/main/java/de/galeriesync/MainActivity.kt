@@ -37,6 +37,7 @@ import de.galeriesync.sync.SmbProvider
 import de.galeriesync.sync.SyncService
 import de.galeriesync.worker.SyncWorker
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
@@ -53,23 +54,24 @@ enum class Editor{NONE,NAS,SYNC}
 @Composable fun App(){
  val context=LocalContext.current;val store=remember{SettingsStore(context)}
  var nas by remember{mutableStateOf(store.loadConnections())};var profiles by remember{mutableStateOf(store.loadProfiles())}
- var tab by remember{mutableStateOf(Tab.HOME)};var editor by remember{mutableStateOf(Editor.NONE)};var editing by remember{mutableStateOf<NasSettings?>(null)}
- var status by remember{mutableStateOf("Bereit")};var running by remember{mutableStateOf(false)};var syncCurrent by remember{mutableIntStateOf(0)};var syncTotal by remember{mutableIntStateOf(0)};var syncFile by remember{mutableStateOf("")};var nasTestStates by remember{mutableStateOf<Map<String,Boolean>>(emptyMap())};val scope=rememberCoroutineScope()
+ var tab by remember{mutableStateOf(Tab.HOME)};var editor by remember{mutableStateOf(Editor.NONE)};var settingsPage by remember{mutableStateOf<String?>(null)};var editing by remember{mutableStateOf<NasSettings?>(null)}
+ var status by remember{mutableStateOf("Bereit")};var running by remember{mutableStateOf(false)};var syncCurrent by remember{mutableIntStateOf(0)};var syncTotal by remember{mutableIntStateOf(0)};var syncFile by remember{mutableStateOf("")};var syncJob by remember{mutableStateOf<Job?>(null)};var nasTestStates by remember{mutableStateOf<Map<String,Boolean>>(emptyMap())};val scope=rememberCoroutineScope()
  val permission=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){}
  LaunchedEffect(Unit){val p=if(Build.VERSION.SDK_INT>=33)arrayOf(Manifest.permission.READ_MEDIA_IMAGES,Manifest.permission.READ_MEDIA_VIDEO)else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE);if(p.any{ContextCompat.checkSelfPermission(context,it)!=PackageManager.PERMISSION_GRANTED})permission.launch(p)}
  fun saveNas(v:NasSettings){nas=(nas.filterNot{it.id==v.id}+v);store.saveConnections(nas)}
  fun deleteNas(v:NasSettings){nas=nas.filterNot{it.id==v.id};profiles=profiles.filterNot{it.host==v.host&&it.share==v.share};store.saveConnections(nas);store.saveProfiles(profiles)}
  fun saveProfile(v:NasSettings){profiles=profiles.filterNot{it.id==v.id}+v;store.saveProfiles(profiles)}
- BackHandler(enabled=editor!=Editor.NONE){editor=Editor.NONE;editing=null}
- fun runProfile(p:NasSettings){scope.launch{running=true;syncCurrent=0;syncTotal=0;syncFile="";status="Synchronisiere "+p.profileName.ifBlank{"Profil"}+" …";val r=runCatching{SyncService(context).run(p){i,total,n->syncCurrent=i;syncTotal=total;syncFile=n;status=n}};status=r.fold({result->if(result.failed==0)"Fertig über ${result.transport} · ${result.copied} übertragen · ${result.skipped} übersprungen" else "SMB · ${result.copied} übertragen · ${result.failed} Fehler · ${result.lastError?:"Details unbekannt"}"},{"SMB-Fehler · "+(it.message?:"Unbekannt")});running=false;syncFile=""}}
+ BackHandler(enabled=editor!=Editor.NONE||settingsPage!=null){if(editor!=Editor.NONE){editor=Editor.NONE;editing=null}else settingsPage=null}
+ fun runProfile(p:NasSettings){syncJob=scope.launch{running=true;syncCurrent=0;syncTotal=0;syncFile="";status="Synchronisiere "+p.profileName.ifBlank{"Profil"}+" …";val r=runCatching{SyncService(context).run(p){i,total,n->syncCurrent=i;syncTotal=total;syncFile=n;status=n}};status=r.fold({result->if(result.failed==0)"Fertig über ${result.transport} · ${result.copied} übertragen · ${result.skipped} übersprungen" else "SMB · ${result.copied} übertragen · ${result.failed} Fehler · ${result.lastError?:"Details unbekannt"}"},{"SMB-Fehler · "+(it.message?:"Unbekannt")});running=false;syncFile=""}}
  if(editor==Editor.NAS){NasEditor(editing?:NasSettings(),{editor=Editor.NONE},{saveNas(it);editor=Editor.NONE});return}
  if(editor==Editor.SYNC){SyncEditor(editing,nas,{editor=Editor.NONE},{saveProfile(it);editor=Editor.NONE});return}
+ if(running){SyncProgressScreen(profiles.firstOrNull{it.enabled}?:NasSettings(),syncCurrent,syncTotal,syncFile){syncJob?.cancel();running=false;status="Synchronisation abgebrochen";syncFile=""};return}
  Scaffold(containerColor=Navy,bottomBar={NavigationBar(containerColor=Color(0xFF091F2D)){Tab.entries.forEach{t->NavigationBarItem(selected=tab==t,onClick={tab=t},icon={Text(t.icon,fontSize=20.sp)},label={Text(t.label,fontSize=10.sp)})}}}){pad->
   Box(Modifier.padding(pad).fillMaxSize()){when(tab){
    Tab.HOME->Home(nas,profiles,status,running,syncCurrent,syncTotal,syncFile,{profiles.filter{it.enabled}.forEach{runProfile(it)}})
    Tab.NAS->NasList(nas,nasTestStates,{editing=null;editor=Editor.NAS},{editing=it;editor=Editor.NAS},{deleteNas(it)},{n->scope.launch{status="Teste Verbindung …";val result=runCatching{withContext(Dispatchers.IO){SmbProvider(n).test()}};nasTestStates=nasTestStates+(n.id to result.isSuccess);status=result.fold({"Verbunden"},{"Fehler · "+(it.message?:"Unbekannt")})}})
    Tab.SYNC->ProfileList(profiles,running,{editing=null;editor=Editor.SYNC},{editing=it;editor=Editor.SYNC},{p->profiles=profiles.filterNot{it.id==p.id};store.saveProfiles(profiles)},{p->val v=p.copy(enabled=!p.enabled);profiles=profiles.map{if(it.id==p.id)v else it};store.saveProfiles(profiles)},{runProfile(it)})
-   Tab.SETTINGS->SettingsScreen()
+   Tab.SETTINGS->SettingsScreen(settingsPage,{settingsPage=it})
   }}
  }
 }
@@ -89,6 +91,15 @@ enum class Editor{NONE,NAS,SYNC}
    Button(onClick=onAll,enabled=!running&&profiles.any{it.enabled},modifier=Modifier.fillMaxWidth().height(54.dp)){Text(if(running)"Synchronisiere …" else "↻  Jetzt synchronisieren",color=Color.White,fontWeight=FontWeight.Bold)}
   }
  }
+}
+
+@Composable private fun SyncProgressScreen(profile:NasSettings,current:Int,total:Int,file:String,onCancel:()->Unit){
+ Column(Modifier.fillMaxSize().background(Navy)){BackTitle("Synchronisation",onCancel);Column(Modifier.fillMaxSize().padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(18.dp)){
+  Spacer(Modifier.height(20.dp));Box(Modifier.size(170.dp),contentAlignment=Alignment.Center){CircularProgressIndicator(progress={if(total>0)current.toFloat()/total else 0f},modifier=Modifier.fillMaxSize(),strokeWidth=10.dp);Text("↻",fontSize=54.sp,color=Color.White)}
+  Text("Synchronisiere …",fontSize=24.sp,fontWeight=FontWeight.Bold,color=Color.White);Text(if(total>0)"$current von $total Dateien" else "Dateien werden vorbereitet …",color=Muted)
+  CardBox{Text(file.ifBlank{"Verbindung wird vorbereitet …"},color=Color.White,fontWeight=FontWeight.SemiBold);Text(if(file.isBlank())"Warte …" else "Wird synchronisiert …",color=Blue,fontSize=12.sp)}
+  Spacer(Modifier.weight(1f));OutlinedButton(onClick=onCancel,modifier=Modifier.fillMaxWidth().height(54.dp)){Text("Abbrechen",color=Color.White)}
+ }}
 }
 
 @Composable private fun NasList(items:List<NasSettings>,testStates:Map<String,Boolean>,onAdd:()->Unit,onEdit:(NasSettings)->Unit,onDelete:(NasSettings)->Unit,onTest:(NasSettings)->Unit){Column(Modifier.fillMaxSize()){Header("NAS","Verbindungen verwalten");Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){if(items.isEmpty())CardBox{Text("Noch keine NAS-Verbindung",fontWeight=FontWeight.Bold);Text("Lege SMB und optional UGREENlink-Zugangsdaten an.",color=Muted)};items.forEach{n->CardBox{Row(verticalAlignment=Alignment.CenterVertically){val testState=testStates[n.id];Text("▣",fontSize=30.sp,color=when(testState){true->Green;false->MaterialTheme.colorScheme.error;null->Color.White});Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(n.name.ifBlank{n.host},fontWeight=FontWeight.Bold);Text(n.host+" · "+n.share,color=Muted,fontSize=12.sp);if(n.ugreenlinkId.isNotBlank())Text("UGREENlink hinterlegt",color=Green,fontSize=12.sp)}};Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){TextButton(onClick={onTest(n)}){Text("Test")};TextButton(onClick={onEdit(n)}){Text("Bearbeiten")};TextButton(onClick={onDelete(n)}){Text("Löschen",color=MaterialTheme.colorScheme.error)}}}};Button(onClick=onAdd,modifier=Modifier.fillMaxWidth()){Text("+  Neue NAS-Verbindung")}}}}
@@ -188,14 +199,22 @@ enum class Editor{NONE,NAS,SYNC}
 }
 
 @Composable private fun DirectionCard(t:String,on:Boolean,click:()->Unit){Card(Modifier.fillMaxWidth().clickable{click()},shape=RoundedCornerShape(14.dp),colors=CardDefaults.cardColors(containerColor=if(on)Color(0xFF17466A) else Panel)){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(t,Modifier.weight(1f),fontWeight=FontWeight.SemiBold,color=Color.White);RadioButton(on,click)}}}
-@Composable private fun SettingsScreen(){val context=LocalContext.current;Column(Modifier.fillMaxSize()){Header("Einstellungen");Column(Modifier.padding(horizontal=16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(2.dp)){
- SettingsRow("⚙","Allgemein","Design, Benachrichtigungen, Sprache")
- SettingsRow("◉","WLAN-Einstellungen","Nur WLAN für automatische Synchronisation")
- SettingsRow("◷","Automatische Synchronisation","Zeitplan · Hintergrund"){schedule(context)}
- SettingsRow("▣","Daten & Speicher","Speicherorte, Cache, Datenbank")
- SettingsRow("ⓘ","Über die App","GalerieSync · Version 0.4.0")
-}}}
-@Composable private fun SettingsRow(icon:String,title:String,subtitle:String,onClick:(()->Unit)?=null){Surface(Modifier.fillMaxWidth().clickable(enabled=onClick!=null){onClick?.invoke()},color=Panel){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(icon,fontSize=24.sp,color=Color.White);Spacer(Modifier.width(14.dp));Column(Modifier.weight(1f)){Text(title,color=Color.White,fontWeight=FontWeight.Bold);Text(subtitle,color=Muted,fontSize=12.sp)};Text("›",color=Color.White,fontSize=26.sp)}}}
+@Composable private fun SettingsScreen(page:String?,open:(String?)->Unit){val context=LocalContext.current
+ if(page!=null){Column(Modifier.fillMaxSize().background(Navy)){BackTitle(page){open(null)};Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){when(page){
+  "Allgemein"->CardBox{Text("Darstellung",color=Color.White,fontWeight=FontWeight.Bold);Text("GalerieSync verwendet das optimierte dunkle Design.",color=Muted);Text("Benachrichtigungen und Sprache folgen derzeit den Android-Systemeinstellungen.",color=Muted,fontSize=12.sp)}
+  "WLAN-Einstellungen"->CardBox{Text("Nur WLAN",color=Color.White,fontWeight=FontWeight.Bold);Text("Automatische Synchronisationen verwenden eine ungemessene Netzwerkverbindung (WLAN).",color=Muted)}
+  "Automatische Synchronisation"->CardBox{Text("Hintergrund-Synchronisation",color=Color.White,fontWeight=FontWeight.Bold);Text("Aktive Profile können alle 15 Minuten geprüft werden.",color=Muted);Button(onClick={schedule(context)},modifier=Modifier.fillMaxWidth()){Text("Automatik aktivieren",color=Color.White)}}
+  "Daten & Speicher"->CardBox{Text("Lokale Daten",color=Color.White,fontWeight=FontWeight.Bold);Text("NAS-Zugangsdaten werden verschlüsselt gespeichert. GalerieSync löscht beim Synchronisieren keine Dateien automatisch.",color=Muted)}
+  else->CardBox{Text("GalerieSync",color=Color.White,fontWeight=FontWeight.Bold,fontSize=20.sp);Text("Version 0.4.0",color=Muted);Text("Fotos und Videos zwischen Smartphone und NAS synchronisieren.",color=Muted)}
+ }}};return}
+ Column(Modifier.fillMaxSize()){Header("Einstellungen");Column(Modifier.padding(horizontal=16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(2.dp)){
+  SettingsRow("⚙","Allgemein","Design, Benachrichtigungen, Sprache"){open("Allgemein")}
+  SettingsRow("◉","WLAN-Einstellungen","Nur WLAN, mobile Daten"){open("WLAN-Einstellungen")}
+  SettingsRow("◷","Automatische Synchronisation","Zeitplan · Hintergrund"){open("Automatische Synchronisation")}
+  SettingsRow("▣","Daten & Speicher","Speicherorte, Cache, Datenbank"){open("Daten & Speicher")}
+  SettingsRow("ⓘ","Über die App","GalerieSync · Version 0.4.0"){open("Über die App")}
+ }}}
+@Composable private fun SettingsRow(icon:String,title:String,subtitle:String,onClick:()->Unit){Surface(Modifier.fillMaxWidth().clickable{onClick()},color=Panel){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(icon,fontSize=24.sp,color=Color.White);Spacer(Modifier.width(14.dp));Column(Modifier.weight(1f)){Text(title,color=Color.White,fontWeight=FontWeight.Bold);Text(subtitle,color=Muted,fontSize=12.sp)};Text("›",color=Color.White,fontSize=26.sp)}}}
 private fun syncDirectionText(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektional"}
 private fun syncProfileTitle(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektionale Synchronisation"}
 fun schedule(context:android.content.Context){val c=Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build();val r=PeriodicWorkRequestBuilder<SyncWorker>(15,TimeUnit.MINUTES).setConstraints(c).build();WorkManager.getInstance(context).enqueueUniquePeriodicWork("GalerieSync",ExistingPeriodicWorkPolicy.UPDATE,r)}
