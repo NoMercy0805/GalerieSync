@@ -35,7 +35,6 @@ import de.galeriesync.sync.MediaFolder
 import de.galeriesync.sync.MediaScanner
 import de.galeriesync.sync.SmbProvider
 import de.galeriesync.sync.SyncService
-import de.galeriesync.sync.WebDavProvider
 import de.galeriesync.worker.SyncWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -112,7 +111,7 @@ enum class Editor{NONE,NAS,SYNC}
  Column(Modifier.fillMaxSize().background(Navy)){
   BackTitle(if(initial.host.isBlank())"NAS hinzufügen" else "NAS bearbeiten",onBack)
   Row(Modifier.fillMaxWidth().padding(horizontal=20.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-   listOf("SMB","WebDAV","UGREENlink").forEachIndexed{i,t->val active=mode==i;Surface(Modifier.weight(1f).clickable{mode=i},shape=RoundedCornerShape(12.dp),color=if(active)Color(0xFF17466A) else Panel){Text(t,Modifier.padding(vertical=12.dp),color=if(active)Color.White else Muted,fontWeight=FontWeight.Bold,textAlign=androidx.compose.ui.text.style.TextAlign.Center)}}
+   listOf("SMB","UGREENlink").forEachIndexed{i,t->val active=mode==i;Surface(Modifier.weight(1f).clickable{mode=i},shape=RoundedCornerShape(12.dp),color=if(active)Color(0xFF17466A) else Panel){Text(t,Modifier.padding(vertical=12.dp),color=if(active)Color.White else Muted,fontWeight=FontWeight.Bold,textAlign=androidx.compose.ui.text.style.TextAlign.Center)}}
   }
   Column(Modifier.padding(20.dp,16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){
    if(mode==0){
@@ -125,15 +124,6 @@ enum class Editor{NONE,NAS,SYNC}
     if(msg.isNotBlank())Text(msg,color=if(msg.startsWith("✓"))Green else Muted,fontSize=12.sp)
     if(shares.isNotEmpty()){Text("Freigabe auswählen",color=Color.White,fontWeight=FontWeight.SemiBold);shares.forEach{sh->Surface(Modifier.fillMaxWidth().clickable{s=s.copy(share=sh)},shape=RoundedCornerShape(12.dp),color=if(s.share==sh)Color(0xFF17466A) else Panel){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Text("▣",color=Blue);Spacer(Modifier.width(10.dp));Text(sh,Modifier.weight(1f),color=Color.White);RadioButton(s.share==sh,null)}}}}
     Field("SMB-Freigabe",s.share,{s=s.copy(share=it)})
-   }else if(mode==1){
-    Text("WebDAV",color=Color.White,fontWeight=FontWeight.Bold,fontSize=19.sp)
-    Text("Für lokalen oder externen Zugriff · HTTPS empfohlen",color=Muted,fontSize=12.sp)
-    Field("WebDAV-Adresse",s.webdavUrl,{s=s.copy(webdavUrl=it)})
-    Text("Lokal z. B. https://192.168.1.10:5006 · extern DDNS/Domain + weitergeleiteter HTTPS-Port",color=Muted,fontSize=11.sp)
-    Field("WebDAV Benutzername",s.webdavUsername,{s=s.copy(webdavUsername=it)})
-    Field("WebDAV Passwort",s.webdavPassword,{s=s.copy(webdavPassword=it)},true)
-    Button(onClick={scope.launch{busy=true;msg=runCatching{withContext(Dispatchers.IO){WebDavProvider(s).test()}}.fold({"✓ WebDAV erreichbar"},{"✕ "+(it.message?:"WebDAV nicht erreichbar")});busy=false}},enabled=!busy&&s.webdavUrl.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text(if(busy)"WebDAV wird geprüft …" else "WebDAV testen",color=Color.White)}
-    if(msg.isNotBlank())Text(msg,color=if(msg.startsWith("✓"))Green else MaterialTheme.colorScheme.error,fontSize=12.sp)
    }else{
     Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("UGREENlink",color=Color.White,fontWeight=FontWeight.Bold,fontSize=19.sp);Text("Optionaler Fernzugang",color=Muted,fontSize=12.sp)};Surface(shape=RoundedCornerShape(20.dp),color=Panel2){Text("OPTIONAL",Modifier.padding(10.dp,5.dp),color=Blue,fontSize=10.sp,fontWeight=FontWeight.Bold)}}
     Text("UGREENlink ist optional und unabhängig von der lokalen SMB-Verbindung.",color=Muted,fontSize=12.sp)
@@ -147,7 +137,7 @@ enum class Editor{NONE,NAS,SYNC}
     }
    }
    Spacer(Modifier.height(4.dp))
-   Button(onClick={onSave(s.copy(name=s.name.ifBlank{s.host}))},enabled=(s.host.isNotBlank()&&s.share.isNotBlank())||s.webdavUrl.isNotBlank(),modifier=Modifier.fillMaxWidth().height(52.dp),shape=RoundedCornerShape(12.dp)){Text("NAS-Verbindung speichern",color=if((s.host.isNotBlank()&&s.share.isNotBlank())||s.webdavUrl.isNotBlank())Color.White else Muted,fontWeight=FontWeight.Bold)}
+   Button(onClick={onSave(s.copy(name=s.name.ifBlank{s.host}))},enabled=(s.host.isNotBlank()&&s.share.isNotBlank()),modifier=Modifier.fillMaxWidth().height(52.dp),shape=RoundedCornerShape(12.dp)){Text("NAS-Verbindung speichern",color=if((s.host.isNotBlank()&&s.share.isNotBlank())||s.webdavUrl.isNotBlank())Color.White else Muted,fontWeight=FontWeight.Bold)}
    Spacer(Modifier.height(18.dp))
   }
  }
@@ -167,7 +157,7 @@ enum class Editor{NONE,NAS,SYNC}
    }else if(step==0){
     Field("Name der Synchronisation",p.profileName,{p=p.copy(profileName=it)})
     Text("NAS auswählen",color=Color.White,fontWeight=FontWeight.Bold)
-    connections.forEach{n->val active=selected?.id==n.id;Card(Modifier.fillMaxWidth().clickable{selected=n;p=p.copy(host=n.host,share=n.share,username=n.username,password=n.password,domain=n.domain,name=n.name,ugreenlinkId=n.ugreenlinkId,ugreenUsername=n.ugreenUsername,ugreenPassword=n.ugreenPassword,webdavUrl=n.webdavUrl,webdavUsername=n.webdavUsername,webdavPassword=n.webdavPassword)},colors=CardDefaults.cardColors(containerColor=if(active)Color(0xFF17466A) else Panel)){Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){Text(n.name.ifBlank{n.host},Modifier.weight(1f),fontWeight=FontWeight.Bold,color=Color.White);RadioButton(active,null)}}}
+    connections.forEach{n->val active=selected?.id==n.id;Card(Modifier.fillMaxWidth().clickable{selected=n;p=p.copy(host=n.host,share=n.share,username=n.username,password=n.password,domain=n.domain,name=n.name,ugreenlinkId=n.ugreenlinkId,ugreenUsername=n.ugreenUsername,ugreenPassword=n.ugreenPassword)},colors=CardDefaults.cardColors(containerColor=if(active)Color(0xFF17466A) else Panel)){Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){Text(n.name.ifBlank{n.host},Modifier.weight(1f),fontWeight=FontWeight.Bold,color=Color.White);RadioButton(active,null)}}}
     Text("Richtung",color=Color.White,fontWeight=FontWeight.Bold)
     DirectionCard("Handy → NAS",p.direction==SyncDirection.PHONE_TO_NAS){p=p.copy(direction=SyncDirection.PHONE_TO_NAS)}
     DirectionCard("NAS → Handy",p.direction==SyncDirection.NAS_TO_PHONE){p=p.copy(direction=SyncDirection.NAS_TO_PHONE)}
