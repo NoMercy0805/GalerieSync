@@ -22,7 +22,7 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
  override suspend fun doWork():Result{
   val store=SettingsStore(applicationContext);val requested=inputData.getString("profile_id");val profiles=store.loadProfiles().filter{it.enabled&&(requested==null||it.id==requested)};if(profiles.isEmpty())return Result.success()
   val showNotifications=store.loadNotificationsEnabled();setForeground(foreground("Synchronisation wird gestartet …",0));if(showNotifications)nm.notify(4103,notification("GalerieSync","Synchronisation gestartet"))
-  var startedVpn=false;var lastBytes=0L;var lastAt=System.currentTimeMillis();var speed=0L
+  var startedVpn=false;var lastBytes=0L;var lastAt=System.currentTimeMillis();var speed=0L;var lastNotificationAt=0L
   return runCatching{
    try{
     startedVpn=VpnManager.connectIfNeeded(applicationContext)
@@ -31,7 +31,7 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
      SyncService(applicationContext).run(p){sp:SyncProgress->
       val percent=if(sp.totalBytes>0)((sp.doneBytes*100/sp.totalBytes).toInt()) else if(sp.totalFiles>0)(sp.doneFiles*100/sp.totalFiles) else 0
       val now=System.currentTimeMillis();if(now-lastAt>=750&&sp.doneBytes>=lastBytes){speed=(sp.doneBytes-lastBytes)*1000L/(now-lastAt).coerceAtLeast(1);lastBytes=sp.doneBytes;lastAt=now};setProgressAsync(workDataOf("doneFiles" to sp.doneFiles,"totalFiles" to sp.totalFiles,"doneBytes" to sp.doneBytes,"totalBytes" to sp.totalBytes,"message" to sp.message));val text=if(sp.totalFiles>0)"$percent % · ${sp.doneFiles} von ${sp.totalFiles} Dateien · ${formatBytes(sp.doneBytes)} / ${formatBytes(sp.totalBytes)}"+if(speed>0)" · ${formatBytes(speed)}/s" else "" else sp.message
-      nm.notify(4101,notification("GalerieSync synchronisiert",text,percent))
+      if(now-lastNotificationAt>=750){lastNotificationAt=now;nm.notify(4101,notification("GalerieSync synchronisiert",text,percent))}
      }
     }
    }finally{if(startedVpn)VpnManager.disconnect()}
