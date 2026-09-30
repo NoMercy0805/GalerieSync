@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -59,6 +60,7 @@ enum class Editor{NONE,NAS,SYNC}
  fun saveNas(v:NasSettings){nas=(nas.filterNot{it.id==v.id}+v);store.saveConnections(nas)}
  fun deleteNas(v:NasSettings){nas=nas.filterNot{it.id==v.id};profiles=profiles.filterNot{it.host==v.host&&it.share==v.share};store.saveConnections(nas);store.saveProfiles(profiles)}
  fun saveProfile(v:NasSettings){profiles=profiles.filterNot{it.id==v.id}+v;store.saveProfiles(profiles)}
+ BackHandler(enabled=editor!=Editor.NONE){editor=Editor.NONE;editing=null}
  fun runProfile(p:NasSettings){scope.launch{running=true;status="Synchronisiere "+p.profileName.ifBlank{"Profil"}+" …";val r=runCatching{SyncService(context).run(p){_,_,n->status=n}};status=r.fold({"Fertig · "+it.copied+" übertragen · "+it.failed+" Fehler"},{"Fehler · "+(it.message?:"Unbekannt")});running=false}}
  if(editor==Editor.NAS){NasEditor(editing?:NasSettings(),{editor=Editor.NONE},{saveNas(it);editor=Editor.NONE});return}
  if(editor==Editor.SYNC){SyncEditor(editing,nas,{editor=Editor.NONE},{saveProfile(it);editor=Editor.NONE});return}
@@ -75,7 +77,7 @@ enum class Editor{NONE,NAS,SYNC}
 @Composable private fun Header(t:String,s:String?=null){Column(Modifier.fillMaxWidth().padding(20.dp,18.dp,20.dp,10.dp)){Text(t,fontSize=25.sp,fontWeight=FontWeight.Bold);s?.let{Text(it,color=Muted,fontSize=13.sp)}}}
 @Composable private fun CardBox(content:@Composable ColumnScope.()->Unit){Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(16.dp),content=content)}}
 @Composable private fun Field(label:String,value:String,on:(String)->Unit,password:Boolean=false){OutlinedTextField(value,on,label={Text(label)},modifier=Modifier.fillMaxWidth(),singleLine=true,shape=RoundedCornerShape(12.dp),colors=OutlinedTextFieldDefaults.colors(focusedContainerColor=Panel,unfocusedContainerColor=Panel,focusedTextColor=Color.White,unfocusedTextColor=Color.White,focusedLabelColor=Blue,unfocusedLabelColor=Muted,focusedBorderColor=Blue,unfocusedBorderColor=Color(0xFF345568),cursorColor=Blue),visualTransformation=if(password)PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None)}
-@Composable private fun BackTitle(title:String,onBack:()->Unit){Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onBack){Text("‹",fontSize=30.sp)};Text(title,fontSize=22.sp,fontWeight=FontWeight.Bold)}}
+@Composable private fun BackTitle(title:String,onBack:()->Unit){Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onBack){Text("‹",fontSize=30.sp,color=Blue)};Text(title,fontSize=22.sp,fontWeight=FontWeight.Bold,color=Color.White)}}
 
 @Composable private fun Home(nas:List<NasSettings>,profiles:List<NasSettings>,status:String,running:Boolean,onAll:()->Unit){Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())){Box(Modifier.fillMaxWidth().height(190.dp).background(Brush.verticalGradient(listOf(Color(0xFF154E6A),Navy)))){Column(Modifier.align(Alignment.BottomStart).padding(24.dp)){Text("GalerieSync",fontSize=30.sp,fontWeight=FontWeight.Bold);Text("Deine Fotos. Sicher. Überall.",color=Muted)}};Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){CardBox{Text("Synchronisationen",fontWeight=FontWeight.Bold);Text(profiles.count{it.enabled}.toString()+" aktiv · "+profiles.size+" insgesamt",color=if(profiles.any{it.enabled})Green else Muted)};CardBox{Text("NAS-Verbindungen",fontWeight=FontWeight.Bold);Text(nas.size.toString()+" gespeichert",color=Muted)};CardBox{Text("Status",fontWeight=FontWeight.Bold);Text(status,color=Muted)};Button(onClick=onAll,enabled=!running&&profiles.any{it.enabled},modifier=Modifier.fillMaxWidth()){Text(if(running)"Synchronisiere …" else "Alle aktiven synchronisieren")}}}}
 
