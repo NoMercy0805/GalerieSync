@@ -36,7 +36,7 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
     }
    }finally{if(startedVpn)VpnManager.disconnect()}
    notifyDone("GalerieSync","Synchronisation erfolgreich abgeschlossen");Result.success()
-  }.getOrElse{notifyDone("GalerieSync","Synchronisation fehlgeschlagen: "+(it.message?:"Unbekannter Fehler"));Result.retry()}
+  }.getOrElse{notifyDone("GalerieSync","Synchronisation fehlgeschlagen: "+(it.message?:"Unbekannter Fehler"));if(requested!=null)Result.failure(workDataOf("error" to (it.message?:"Unbekannter Fehler"))) else Result.retry()}
  }
  private fun formatBytes(v:Long):String=when{v>=1073741824L->"%.1f GB".format(v/1073741824.0);v>=1048576L->"%.1f MB".format(v/1048576.0);v>=1024L->"%.1f KB".format(v/1024.0);else->"$v B"}
 }
