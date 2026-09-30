@@ -19,7 +19,7 @@ android {
         getByName("debug") { signingConfig = signingConfigs.getByName("debug") }
         release { isMinifyEnabled = false; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro") }
     }
-    compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+    compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17; isCoreLibraryDesugaringEnabled = true }
     kotlinOptions { jvmTarget = "17" }
 }
 dependencies {
@@ -36,4 +36,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("eu.agno3.jcifs:jcifs-ng:2.1.10")
+    implementation("com.wireguard.android:tunnel:1.0.20230706")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
