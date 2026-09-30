@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -40,7 +42,26 @@ jobs:
           echo "Signing key verified against expected fingerprint."
 
       - name: Build debug APK
-        run: gradle assembleDebug
+        id: build
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle assembleDebug --stacktrace 2>&1 | tee build-output.log
+        continue-on-error: true
+
+      - name: Commit build log on failure
+        if: steps.build.outcome == 'failure'
+        run: |
+          cp build-output.log build-error.log
+          git config user.name "CI Diagnostics"
+          git config user.email "ci@example.com"
+          git add build-error.log
+          git commit -m "CI: build error log [skip ci]"
+          git push
+
+      - name: Fail job if build failed
+        if: steps.build.outcome == 'failure'
+        run: exit 1
 
       - name: Verify APK signature
         run: |
