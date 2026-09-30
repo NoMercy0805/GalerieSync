@@ -12,7 +12,7 @@ import java.io.IOException
 data class SyncResult(val copied:Int,val skipped:Int,val failed:Int,val transport:String="SMB",val lastError:String?=null)
 class SyncService(private val context:Context){
  suspend fun run(settings:NasSettings,progress:(Int,Int,String)->Unit={_,_,_->}):SyncResult=withContext(Dispatchers.IO){
-  require(settings.host.isNotBlank()&&settings.share.isNotBlank()){"NAS-Adresse und Freigabe fehlen."};val smb=SmbProvider(settings);smb.test();smb.ensureDirectory(settings.remoteFolder)
+  require(settings.host.isNotBlank()&&settings.share.isNotBlank()){"NAS-Adresse und Freigabe fehlen."};val smb=SmbProvider(settings);var connected=false;var connectError:Throwable?=null;repeat(5){if(!connected){runCatching{smb.test()}.onSuccess{connected=true}.onFailure{connectError=it};if(!connected)kotlinx.coroutines.delay(1000)}};if(!connected)throw IOException("NAS nach VPN-Aufbau nicht erreichbar: "+(connectError?.message?:"SMB-Verbindung fehlgeschlagen"),connectError);smb.ensureDirectory(settings.remoteFolder)
   val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trimEnd('/')
   var copied=0;var skipped=0;var failed=0;var lastError:String?=null
   val remote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.toSet()
