@@ -16,7 +16,7 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
  private val channel="galeriesync_sync"
  private fun ensureChannel(){if(Build.VERSION.SDK_INT>=26)nm.createNotificationChannel(NotificationChannel(channel,"Synchronisation",NotificationManager.IMPORTANCE_LOW))}
  private fun notification(title:String,text:String,progress:Int?=null)=NotificationCompat.Builder(applicationContext,channel).setSmallIcon(android.R.drawable.stat_sys_upload).setContentTitle(title).setContentText(text).setStyle(NotificationCompat.BigTextStyle().bigText(text)).setOnlyAlertOnce(true).setSilent(true).setOngoing(progress!=null).apply{if(progress!=null)setProgress(100,progress.coerceIn(0,100),false)}.build()
- private fun foreground(text:String,percent:Int?=null):ForegroundInfo{ensureChannel();return ForegroundInfo(4101,notification("GalerieSync synchronisiert",text,percent))}
+ private fun foreground(text:String,percent:Int?=null):ForegroundInfo{ensureChannel();return if(Build.VERSION.SDK_INT>=29) ForegroundInfo(4101,notification("GalerieSync synchronisiert",text,percent),android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else ForegroundInfo(4101,notification("GalerieSync synchronisiert",text,percent))}
  private fun notifyDone(title:String,text:String){if(SettingsStore(applicationContext).loadNotificationsEnabled()){ensureChannel();nm.notify(4102,notification(title,text))}}
  override suspend fun doWork():Result{
   val store=SettingsStore(applicationContext);val requested=inputData.getString("profile_id");val profiles=store.loadProfiles().filter{it.enabled&&(requested==null||it.id==requested)};if(profiles.isEmpty())return Result.success()
