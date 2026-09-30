@@ -24,34 +24,31 @@ Starting a Gradle Daemon (subsequent builds will be faster)
 > Task :app:parseDebugLocalResources
 > Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
-> Task :app:processDebugManifestForPackage
 > Task :app:javaPreCompileDebug
 > Task :app:mergeDebugShaders
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:mergeDebugAssets
 > Task :app:compressDebugAssets
-> Task :app:processDebugResources
-> Task :app:l8DexDesugarLibDebug
 > Task :app:desugarDebugFileDependencies
 > Task :app:mergeDebugJniLibFolders
 > Task :app:checkDebugDuplicateClasses
-
-> Task :app:compileDebugKotlin
-e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
-    1. Kotlin compile daemon is ready
-e: The daemon has terminated unexpectedly on startup attempt #2 with error code: 0. The daemon process output:
-    1. Kotlin compile daemon is ready
-Problems may have occurred during auto-selection of GC. The preferred GC is Parallel GC.
-If the problems persist, try adding the JVM option to the Kotlin daemon JVM arguments: -XX:-UseParallelGC.
-GC auto-selection logic is disabled temporary for the next daemon startup.
-
+> Task :app:processDebugManifestForPackage
 > Task :app:mergeDebugNativeLibs
+> Task :app:l8DexDesugarLibDebug
+> Task :app:processDebugResources
 > Task :app:mergeExtDexDebug
+> Task :app:mergeLibDexDebug
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so, libwg-go.so, libwg-quick.so, libwg.so.
 
 > Task :app:compileDebugKotlin FAILED
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:77:150 Unresolved reference 'Context'.
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790779596805.json
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/worker/SyncWorker.kt:33:7 Suspension functions can only be called within coroutine body.
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790787883626.json
 
 FAILURE: Build failed with an exception.
 
@@ -255,5 +252,5 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	... 2 more
 
 
-BUILD FAILED in 2m 24s
-24 actionable tasks: 24 executed
+BUILD FAILED in 2m 14s
+29 actionable tasks: 29 executed
