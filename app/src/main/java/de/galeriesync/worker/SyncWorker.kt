@@ -19,7 +19,7 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
  private fun foreground(text:String,percent:Int?=null):ForegroundInfo{ensureChannel();return ForegroundInfo(4101,notification("GalerieSync synchronisiert",text,percent))}
  private fun notifyDone(title:String,text:String){if(SettingsStore(applicationContext).loadNotificationsEnabled()){ensureChannel();nm.notify(4102,notification(title,text))}}
  override suspend fun doWork():Result{
-  val store=SettingsStore(applicationContext);val profiles=store.loadProfiles().filter{it.enabled};if(profiles.isEmpty())return Result.success()
+  val store=SettingsStore(applicationContext);val requested=inputData.getString("profile_id");val profiles=store.loadProfiles().filter{it.enabled&&(requested==null||it.id==requested)};if(profiles.isEmpty())return Result.success()
   val showNotifications=store.loadNotificationsEnabled();setForeground(foreground("Synchronisation wird gestartet …",0));if(showNotifications)nm.notify(4103,notification("GalerieSync","Synchronisation gestartet"))
   var startedVpn=false
   return runCatching{
