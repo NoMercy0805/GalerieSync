@@ -30,8 +30,8 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
      if(startedVpn)VpnManager.waitForSmb(p.host)
      SyncService(applicationContext).run(p){sp:SyncProgress->
       val percent=if(sp.totalBytes>0)((sp.doneBytes*100/sp.totalBytes).toInt()) else if(sp.totalFiles>0)(sp.doneFiles*100/sp.totalFiles) else 0
-      val now=System.currentTimeMillis();if(now-lastAt>=750&&sp.doneBytes>=lastBytes){speed=(sp.doneBytes-lastBytes)*1000L/(now-lastAt).coerceAtLeast(1);lastBytes=sp.doneBytes;lastAt=now};setProgressAsync(workDataOf("doneFiles" to sp.doneFiles,"totalFiles" to sp.totalFiles,"doneBytes" to sp.doneBytes,"totalBytes" to sp.totalBytes,"message" to sp.message));val text=if(sp.totalFiles>0)"$percent % · ${sp.doneFiles} von ${sp.totalFiles} Dateien · ${formatBytes(sp.doneBytes)} / ${formatBytes(sp.totalBytes)}"+if(speed>0)" · ${formatBytes(speed)}/s" else "" else sp.message
-      if(now-lastNotificationAt>=750){lastNotificationAt=now;nm.notify(4101,notification("GalerieSync synchronisiert",text,percent))}
+      val now=System.currentTimeMillis();if(now-lastAt>=1000&&sp.doneBytes>=lastBytes){speed=(sp.doneBytes-lastBytes)*1000L/(now-lastAt).coerceAtLeast(1);lastBytes=sp.doneBytes;lastAt=now};setProgressAsync(workDataOf("doneFiles" to sp.doneFiles,"totalFiles" to sp.totalFiles,"doneBytes" to sp.doneBytes,"totalBytes" to sp.totalBytes,"message" to sp.message));val text=if(sp.totalFiles>0)"$percent % · ${sp.doneFiles} von ${sp.totalFiles} Dateien · ${formatBytes(sp.doneBytes)} / ${formatBytes(sp.totalBytes)}"+if(speed>0)" · ${formatBytes(speed)}/s" else "" else sp.message
+      if(now-lastNotificationAt>=1000){lastNotificationAt=now;nm.notify(4101,notification("GalerieSync synchronisiert",text,percent))}
      }
     }
    }finally{if(startedVpn)VpnManager.disconnect()}
