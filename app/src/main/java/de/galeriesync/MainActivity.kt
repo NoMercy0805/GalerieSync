@@ -202,7 +202,7 @@ enum class Editor{NONE,NAS,SYNC}
  if(page!=null){Column(Modifier.fillMaxSize().background(Navy)){BackTitle(page){open(null)};Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){when(page){
   "Allgemein"->ThemeSettings()
   "WLAN-Einstellungen"->VpnFallbackSettings(context)
-  "Automatische Synchronisation"->CardBox{Text("Hintergrund-Synchronisation",color=Color.White,fontWeight=FontWeight.Bold);Text("Aktive Profile können alle 15 Minuten geprüft werden.",color=Muted);Button(onClick={schedule(context)},modifier=Modifier.fillMaxWidth()){Text("Automatik aktivieren",color=Color.White)}}
+  "Automatische Synchronisation"->AutoSyncSettings(context)
   "Daten & Speicher"->CardBox{Text("Lokale Daten",color=Color.White,fontWeight=FontWeight.Bold);Text("NAS-Zugangsdaten werden verschlüsselt gespeichert. GalerieSync löscht beim Synchronisieren keine Dateien automatisch.",color=Muted)}
   else->CardBox{Text("GalerieSync",color=Color.White,fontWeight=FontWeight.Bold,fontSize=20.sp);Text("Version 0.4.0",color=Muted);Text("Fotos und Videos zwischen Smartphone und NAS synchronisieren.",color=Muted)}
  }}};return}
@@ -243,7 +243,20 @@ enum class Editor{NONE,NAS,SYNC}
 @Composable private fun SettingsRow(icon:String,title:String,subtitle:String,onClick:()->Unit){Surface(Modifier.fillMaxWidth().clickable{onClick()},color=MaterialTheme.colorScheme.surface){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(icon,fontSize=24.sp,color=Color.White);Spacer(Modifier.width(14.dp));Column(Modifier.weight(1f)){Text(title,color=Color.White,fontWeight=FontWeight.Bold);Text(subtitle,color=Muted,fontSize=12.sp)};Text("›",color=Color.White,fontSize=26.sp)}}}
 private fun syncDirectionText(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektional"}
 private fun syncProfileTitle(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektionale Synchronisation"}
-fun schedule(context:android.content.Context){val c=Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build();val r=PeriodicWorkRequestBuilder<SyncWorker>(15,TimeUnit.MINUTES).setConstraints(c).build();WorkManager.getInstance(context).enqueueUniquePeriodicWork("GalerieSync",ExistingPeriodicWorkPolicy.UPDATE,r)}
+@Composable private fun AutoSyncSettings(context:android.content.Context){
+ val store=remember{SettingsStore(context)};var value by remember{mutableStateOf(store.loadAutoSyncValue().toString())};var unit by remember{mutableStateOf(store.loadAutoSyncUnit())};var saved by remember{mutableStateOf("")}
+ CardBox{
+  Text("Hintergrund-Synchronisation",fontWeight=FontWeight.Bold,fontSize=18.sp)
+  Text("Lege fest, wie oft aktive Profile automatisch geprüft werden.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)
+  Spacer(Modifier.height(8.dp))
+  OutlinedTextField(value=value,onValueChange={value=it.filter(Char::isDigit).take(4)},label={Text("Intervall")},singleLine=true,modifier=Modifier.fillMaxWidth())
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("MINUTES" to "Minuten","HOURS" to "Stunden","DAYS" to "Tage","WEEKS" to "Wochen").forEach{(v,label)->FilterChip(selected=unit==v,onClick={unit=v},label={Text(label)})}}
+  Text("Android führt Hintergrundarbeit nicht sekundengenau aus. Das kleinste unterstützte Intervall sind 15 Minuten.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)
+  Button(onClick={val raw=value.toLongOrNull()?:15L;val minutes=when(unit){"HOURS"->raw*60;"DAYS"->raw*1440;"WEEKS"->raw*10080;else->raw}.coerceAtLeast(15);store.saveAutoSyncSchedule(raw.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),unit);schedule(context,minutes);saved="Automatik gespeichert · "+value+" "+when(unit){"HOURS"->"Stunden";"DAYS"->"Tage";"WEEKS"->"Wochen";else->"Minuten"},modifier=Modifier.fillMaxWidth()){Text("Zeitplan speichern & aktivieren")}
+  if(saved.isNotBlank())Text(saved,color=Green,fontSize=12.sp)
+ }
+}
+fun schedule(context:android.content.Context,minutes:Long){val c=Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build();val r=PeriodicWorkRequestBuilder<SyncWorker>(minutes.coerceAtLeast(15),TimeUnit.MINUTES).setConstraints(c).build();WorkManager.getInstance(context).enqueueUniquePeriodicWork("GalerieSync",ExistingPeriodicWorkPolicy.UPDATE,r)}
 
 private fun formatBytes(v:Long):String{val locale=java.util.Locale.GERMANY;return when{v>=1_099_511_627_776L->"%.2f TB".format(locale,v/1_099_511_627_776.0);v>=1_073_741_824L->"%.2f GB".format(locale,v/1_073_741_824.0);v>=1_048_576L->"%.1f MB".format(locale,v/1_048_576.0);v>=1_024L->"%.1f KB".format(locale,v/1_024.0);else->"$v B"}}
 
