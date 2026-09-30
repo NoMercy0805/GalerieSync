@@ -9,9 +9,10 @@ import java.io.BufferedOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
+data class SyncProgress(val doneFiles:Int,val totalFiles:Int,val doneBytes:Long,val totalBytes:Long,val message:String)
 data class SyncResult(val copied:Int,val skipped:Int,val failed:Int,val transport:String="SMB",val lastError:String?=null)
 class SyncService(private val context:Context){
- suspend fun run(settings:NasSettings,progress:(Int,Int,String)->Unit={_,_,_->}):SyncResult=withContext(Dispatchers.IO){
+ suspend fun run(settings:NasSettings,progress:(SyncProgress)->Unit={}):SyncResult=withContext(Dispatchers.IO){
   require(settings.host.isNotBlank()&&settings.share.isNotBlank()){"NAS-Adresse und Freigabe fehlen."};val smb=SmbProvider(settings);var connected=false;var connectError:Throwable?=null;repeat(5){if(!connected){runCatching{smb.test()}.onSuccess{connected=true}.onFailure{connectError=it};if(!connected)kotlinx.coroutines.delay(1000)}};if(!connected)throw IOException("NAS nach VPN-Aufbau nicht erreichbar: "+(connectError?.message?:"SMB-Verbindung fehlgeschlagen"),connectError);smb.ensureDirectory(settings.remoteFolder)
   val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trimEnd('/')
   var copied=0;var skipped=0;var failed=0;var lastError:String?=null
@@ -22,21 +23,22 @@ class SyncService(private val context:Context){
    obsolete.forEach{rel->smb.delete(root+"/"+rel)}
    remote=remote-obsolete
    val total=local.size
-   progress(0,total,"Dateien werden abgeglichen …")
+   val totalBytes=local.sumOf{it.size};var doneBytes=0L
+   progress(SyncProgress(0,total,0,totalBytes,"Dateien werden abgeglichen …"))
    local.forEach{m->
     val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative
-    if(relative in remote){skipped++;progress(copied+skipped,total,"Übersprungen: "+m.displayName)}
+    if(relative in remote){skipped++;doneBytes+=m.size;progress(SyncProgress(copied+skipped,total,doneBytes,totalBytes,"Übersprungen: "+m.displayName))}
     else try{
      target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)}
      context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(target)).use{dst->src.copyTo(dst)}}}
-     copied++;progress(copied+skipped,total,"Hochgeladen: "+m.displayName)
+     copied++;doneBytes+=m.size;progress(SyncProgress(copied+skipped,total,doneBytes,totalBytes,"Hochgeladen: "+m.displayName))
     }catch(t:Throwable){failed++;lastError=t.message?:t.javaClass.simpleName;throw IOException("SMB-Verbindung unterbrochen bei "+m.displayName+": "+lastError,t)}
    }
   }
   if(settings.direction==SyncDirection.NAS_TO_PHONE||settings.direction==SyncDirection.BIDIRECTIONAL){
    val existing=local.map{it.displayName.lowercase()}.toSet();val files=smb.listRecursive(root).filter{it.substringAfterLast('/').lowercase() !in existing};val total=files.size
-   progress(0,total,"Dateien werden abgeglichen …")
-   files.forEach{p->try{downloadToMediaStore(smb,p,root);copied++;progress(copied,total,"Heruntergeladen: "+p.substringAfterLast('/'))}catch(t:Throwable){failed++;lastError=t.message?:t.javaClass.simpleName;throw IOException("SMB-Verbindung unterbrochen bei "+p.substringAfterLast('/')+": "+lastError,t)}}
+   progress(SyncProgress(0,total,0,0,"Dateien werden abgeglichen …"))
+   files.forEach{p->try{downloadToMediaStore(smb,p,root);copied++;progress(SyncProgress(copied,total,0,0,"Heruntergeladen: "+p.substringAfterLast('/')))}catch(t:Throwable){failed++;lastError=t.message?:t.javaClass.simpleName;throw IOException("SMB-Verbindung unterbrochen bei "+p.substringAfterLast('/')+": "+lastError,t)}}
   }
   SyncResult(copied,skipped,failed,"SMB",lastError)
  }
