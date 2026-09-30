@@ -78,7 +78,7 @@ enum class Editor{NONE,NAS,SYNC}
   Box(Modifier.padding(pad).fillMaxSize()){when(tab){
    Tab.HOME->Home(nas,profiles,status,running,syncCurrent,syncTotal,syncFile,{profiles.filter{it.enabled}.forEach{runProfile(it)}})
    Tab.NAS->NasList(nas,nasTestStates,nasStorage,{editing=null;editor=Editor.NAS},{editing=it;editor=Editor.NAS},{deleteNas(it)},{n->scope.launch{status="Teste Verbindung …";val result=runCatching{withContext(Dispatchers.IO){val smb=SmbProvider(n);smb.test();nasStorage=nasStorage+(n.id to smb.storageInfo())}};nasTestStates=nasTestStates+(n.id to result.isSuccess);status=result.fold({"Verbunden"},{"Fehler · "+(it.message?:"Unbekannt")})}})
-   Tab.SYNC->ProfileList(profiles,running,syncCurrent,syncTotal,syncDoneBytes,syncTotalBytes,syncFile,status,{editing=null;editor=Editor.SYNC},{editing=it;editor=Editor.SYNC},{p->profiles=profiles.filterNot{it.id==p.id};store.saveProfiles(profiles)},{p->val v=p.copy(enabled=!p.enabled);profiles=profiles.map{if(it.id==p.id)v else it};store.saveProfiles(profiles)},{runProfile(it)},{syncJob?.cancel();syncJob=null;running=false;syncFile="";status="Synchronisation abgebrochen";if(VpnManager.isUp())VpnManager.disconnect()})
+   Tab.SYNC->ProfileList(profiles,running,syncCurrent,syncTotal,syncDoneBytes,syncTotalBytes,syncFile,status,{editing=null;editor=Editor.SYNC},{editing=it;editor=Editor.SYNC},{p->profiles=profiles.filterNot{it.id==p.id};store.saveProfiles(profiles)},{p->val v=p.copy(enabled=!p.enabled);profiles=profiles.map{if(it.id==p.id)v else it};store.saveProfiles(profiles)},{runProfile(it)},{syncJob?.cancel();syncJob=null;running=false;syncFile="";status="Synchronisation abgebrochen";if(VpnManager.isUp())scope.launch{VpnManager.disconnect()}})
    Tab.SETTINGS->SettingsScreen(settingsPage,{settingsPage=it})
   }}
  }
@@ -252,7 +252,7 @@ private fun syncProfileTitle(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS
   OutlinedTextField(value=value,onValueChange={value=it.filter(Char::isDigit).take(4)},label={Text("Intervall")},singleLine=true,modifier=Modifier.fillMaxWidth())
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("MINUTES" to "Minuten","HOURS" to "Stunden","DAYS" to "Tage","WEEKS" to "Wochen").forEach{(v,label)->FilterChip(selected=unit==v,onClick={unit=v},label={Text(label)})}}
   Text("Android führt Hintergrundarbeit nicht sekundengenau aus. Das kleinste unterstützte Intervall sind 15 Minuten.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)
-  Button(onClick={val raw=value.toLongOrNull()?:15L;val minutes=when(unit){"HOURS"->raw*60;"DAYS"->raw*1440;"WEEKS"->raw*10080;else->raw}.coerceAtLeast(15);store.saveAutoSyncSchedule(raw.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),unit);schedule(context,minutes);saved="Automatik gespeichert · "+value+" "+when(unit){"HOURS"->"Stunden";"DAYS"->"Tage";"WEEKS"->"Wochen";else->"Minuten"},modifier=Modifier.fillMaxWidth()){Text("Zeitplan speichern & aktivieren")}
+  Button(onClick={val raw=value.toLongOrNull()?:15L;val minutes=when(unit){"HOURS"->raw*60;"DAYS"->raw*1440;"WEEKS"->raw*10080;else->raw}.coerceAtLeast(15);store.saveAutoSyncSchedule(raw.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),unit);schedule(context,minutes);saved="Automatik gespeichert · $value "+when(unit){"HOURS"->"Stunden";"DAYS"->"Tage";"WEEKS"->"Wochen";else->"Minuten"}},modifier=Modifier.fillMaxWidth()){Text("Zeitplan speichern & aktivieren")}
   if(saved.isNotBlank())Text(saved,color=Green,fontSize=12.sp)
  }
 }
