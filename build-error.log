@@ -24,11 +24,11 @@ Starting a Gradle Daemon (subsequent builds will be faster)
 > Task :app:parseDebugLocalResources
 > Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
 > Task :app:javaPreCompileDebug
 > Task :app:mergeDebugShaders
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
-> Task :app:processDebugManifestForPackage
 > Task :app:mergeDebugAssets
 > Task :app:compressDebugAssets
 > Task :app:processDebugResources
@@ -38,61 +38,34 @@ Starting a Gradle Daemon (subsequent builds will be faster)
 > Task :app:checkDebugDuplicateClasses
 > Task :app:mergeDebugNativeLibs
 
-> Task :app:compileDebugKotlin
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:82:18 Unresolved reference 'SettingsScreen'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:82:60 Unresolved reference 'it'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:117:1135 Unresolved reference 'formatBytes'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:117:1167 Unresolved reference 'formatBytes'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:117:1197 Unresolved reference 'formatBytes'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1119 Unresolved reference 'formatBytes'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1149 Unresolved reference 'formatBytes'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1572 Unresolved reference 'syncProfileTitle'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1636 Unresolved reference 'syncDirectionText'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1672 Overload resolution ambiguity between candidates:
-fun String?.plus(other: Any?): String
-fun <T> Array<T>.plus(element: T): Array<T>
-fun <T> Iterable<T>.plus(element: T): List<T>
-fun <T> Collection<T>.plus(element: T): List<T>
-fun <T> Set<T>.plus(element: T): Set<T>
-fun <T> Sequence<T>.plus(element: T): Sequence<T>
-fun Char.plus(other: String): String
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1704 Overload resolution ambiguity between candidates:
-fun String?.plus(other: Any?): String
-fun <T> Array<T>.plus(element: T): Array<T>
-fun <T> Iterable<T>.plus(element: T): List<T>
-fun <T> Collection<T>.plus(element: T): List<T>
-fun <T> Set<T>.plus(element: T): Set<T>
-fun <T> Sequence<T>.plus(element: T): Sequence<T>
-fun Char.plus(other: String): String
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:159:5 Unresolved reference 'DirectionCard'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:160:5 Unresolved reference 'DirectionCard'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:161:5 Unresolved reference 'DirectionCard'.
+> Task :app:compileDebugKotlin FAILED
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:81:510 Suspend function 'suspend fun disconnect(onStatus: (String) -> Unit = ...): Unit' should be called only from a coroutine or another suspend function.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:117:1209 Unresolved reference 'formatBytes'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:117:1241 Unresolved reference 'formatBytes'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:117:1271 Unresolved reference 'formatBytes'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1174 Unresolved reference 'formatBytes'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1204 Unresolved reference 'formatBytes'.
 e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:172:48 Unresolved reference 'folderGroupOrder'.
 e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:172:76 Unresolved reference 'folderRelativeSortKey'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:192:70 Unresolved reference 'syncProfileTitle'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:199:13 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:200:13 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:202:16 Unresolved reference 'ThemeSettings'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:203:25 Unresolved reference 'VpnFallbackSettings'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:204:214 Unresolved reference 'schedule'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:209:3 Unresolved reference 'SettingsRow'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:210:3 Unresolved reference 'SettingsRow'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:211:3 Unresolved reference 'SettingsRow'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:212:3 Unresolved reference 'SettingsRow'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:213:3 Unresolved reference 'SettingsRow'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:215:13 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:216:13 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:242:13 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:243:1 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:244:1 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:247:1 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:249:1 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:250:1 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:250:254 Syntax error: Expecting '}'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:255:3 No value passed for parameter 'content'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:255:239 Unresolved reference 'schedule'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:255:387 Syntax error: Unexpected tokens (use ';' to separate expressions on the same line).
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:255:422 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:256:25 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:257:3 Syntax error: Expecting ')'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:261:1 Modifier 'private' is not applicable to 'local function'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:263:1 Modifier 'private' is not applicable to 'local function'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:264:1 Modifier 'private' is not applicable to 'local function'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:264:254 Syntax error: Expecting '}'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/data/SettingsStore.kt:27:66 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/data/SettingsStore.kt:27:67 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/data/SettingsStore.kt:27:155 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/data/SettingsStore.kt:27:156 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/data/SettingsStore.kt:27:291 Syntax error: Expecting member declaration.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/data/SettingsStore.kt:27:292 Syntax error: Expecting member declaration.
 
 > Task :app:mergeExtDexDebug
-> Task :app:compileDebugKotlin FAILED
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790768575630.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790773905043.json
 
 FAILURE: Build failed with an exception.
 
@@ -296,5 +269,5 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	... 2 more
 
 
-BUILD FAILED in 2m 19s
+BUILD FAILED in 2m 14s
 24 actionable tasks: 24 executed
