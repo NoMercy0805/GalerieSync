@@ -196,6 +196,20 @@ enum class Editor{NONE,NAS,SYNC}
   SettingsRow("▣","Daten & Speicher","Speicherorte, Cache, Datenbank"){open("Daten & Speicher")}
   SettingsRow("ⓘ","Über die App","GalerieSync · Version 0.4.0"){open("Über die App")}
  }}}
+@Composable private fun VpnFallbackSettings(context:android.content.Context){
+ val store=remember{SettingsStore(context)};var wifi by remember{mutableStateOf(store.loadTrustedWifi().joinToString(", "))};var config by remember{mutableStateOf(store.loadVpnConfig())}
+ CardBox{
+  Text("VPN-Fallback",color=Color.White,fontWeight=FontWeight.Bold)
+  Text("In den hier eingetragenen WLANs wird SMB direkt verwendet. In allen anderen Netzwerken soll vor dem Sync der FRITZ!Box-WireGuard-Tunnel verwendet werden.",color=Muted,fontSize=12.sp)
+  Spacer(Modifier.height(10.dp))
+  Field("WLAN-Namen (SSID, mit Komma trennen)",wifi,{wifi=it})
+  Text("Beispiel: Zuhause, Zuhause-5GHz",color=Muted,fontSize=11.sp)
+  Spacer(Modifier.height(8.dp))
+  OutlinedTextField(value=config,onValueChange={config=it},label={Text("WireGuard-Konfiguration der FRITZ!Box")},modifier=Modifier.fillMaxWidth().height(180.dp),colors=OutlinedTextFieldDefaults.colors(focusedContainerColor=Panel,unfocusedContainerColor=Panel,focusedTextColor=Color.White,unfocusedTextColor=Color.White))
+  Text("Die Konfiguration wird verschlüsselt im App-Speicher abgelegt. Der automatische Tunnel folgt im nächsten Schritt.",color=Muted,fontSize=11.sp)
+  Button(onClick={store.saveTrustedWifi(wifi.split(",").map{it.trim()}.filter{it.isNotBlank()}.toSet());store.saveVpnConfig(config)},modifier=Modifier.fillMaxWidth()){Text("VPN-Fallback speichern",color=Color.White)}
+ }
+}
 @Composable private fun SettingsRow(icon:String,title:String,subtitle:String,onClick:()->Unit){Surface(Modifier.fillMaxWidth().clickable{onClick()},color=Panel){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(icon,fontSize=24.sp,color=Color.White);Spacer(Modifier.width(14.dp));Column(Modifier.weight(1f)){Text(title,color=Color.White,fontWeight=FontWeight.Bold);Text(subtitle,color=Muted,fontSize=12.sp)};Text("›",color=Color.White,fontSize=26.sp)}}}
 private fun syncDirectionText(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektional"}
 private fun syncProfileTitle(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektionale Synchronisation"}
