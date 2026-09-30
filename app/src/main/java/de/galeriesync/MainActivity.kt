@@ -41,8 +41,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
-import java.net.HttpURLConnection
-import java.net.URL
 
 private val Navy=Color(0xFF071A27);private val Panel=Color(0xFF102A3A);private val Panel2=Color(0xFF17384B)
 private val Blue=Color(0xFF3DA5FF);private val Green=Color(0xFF42D77D);private val Muted=Color(0xFF9CB1BF)
@@ -107,14 +105,10 @@ enum class Editor{NONE,NAS,SYNC}
 @Composable private fun ProfileList(items:List<NasSettings>,running:Boolean,onAdd:()->Unit,onEdit:(NasSettings)->Unit,onDelete:(NasSettings)->Unit,onToggle:(NasSettings)->Unit,onRun:(NasSettings)->Unit){Column(Modifier.fillMaxSize()){Header("Synchronisationen","Ordner, Richtung und Ziel frei verwalten");Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){if(items.isEmpty())CardBox{Text("Noch keine Synchronisation",fontWeight=FontWeight.Bold);Text("Erstelle beliebig viele Profile und wähle pro Profil eigene Ordner.",color=Muted)};items.forEach{p->CardBox{Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(p.profileName.ifBlank{syncProfileTitle(p.direction)},fontWeight=FontWeight.Bold);Text(syncDirectionText(p.direction)+" · "+p.sourceFolders.size.toString()+" Ordner",color=Muted,fontSize=12.sp);Text((p.name.ifBlank{p.host})+"  →  /"+p.remoteFolder,color=Muted,fontSize=12.sp);Text(if(p.enabled)"● Aktiv" else "○ Inaktiv",color=if(p.enabled)Green else Muted,fontSize=12.sp)};Switch(p.enabled,{onToggle(p)})};Row{TextButton(onClick={onRun(p)},enabled=!running&&p.enabled){Text("Jetzt")};TextButton(onClick={onEdit(p)}){Text("Bearbeiten")};TextButton(onClick={onDelete(p)}){Text("Löschen",color=MaterialTheme.colorScheme.error)}}}};Button(onClick=onAdd,enabled=true,modifier=Modifier.fillMaxWidth()){Text("+  Neue Synchronisation")}}}}
 
 @Composable private fun NasEditor(initial:NasSettings,onBack:()->Unit,onSave:(NasSettings)->Unit){
- var s by remember{mutableStateOf(initial)};var mode by remember{mutableIntStateOf(0)};var shares by remember{mutableStateOf(emptyList<String>())};var msg by remember{mutableStateOf("")};var ugreenMsg by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var ugreenBusy by remember{mutableStateOf(false)};val scope=rememberCoroutineScope()
+ var s by remember{mutableStateOf(initial)};var shares by remember{mutableStateOf(emptyList<String>())};var msg by remember{mutableStateOf("")};var ugreenMsg by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var ugreenBusy by remember{mutableStateOf(false)};val scope=rememberCoroutineScope()
  Column(Modifier.fillMaxSize().background(Navy)){
   BackTitle(if(initial.host.isBlank())"NAS hinzufügen" else "NAS bearbeiten",onBack)
-  Row(Modifier.fillMaxWidth().padding(horizontal=20.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-   listOf("SMB","UGREENlink").forEachIndexed{i,t->val active=mode==i;Surface(Modifier.weight(1f).clickable{mode=i},shape=RoundedCornerShape(12.dp),color=if(active)Color(0xFF17466A) else Panel){Text(t,Modifier.padding(vertical=12.dp),color=if(active)Color.White else Muted,fontWeight=FontWeight.Bold,textAlign=androidx.compose.ui.text.style.TextAlign.Center)}}
-  }
   Column(Modifier.padding(20.dp,16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){
-   if(mode==0){
     Text("Lokale Verbindung",color=Color.White,fontWeight=FontWeight.Bold,fontSize=19.sp)
     Text("SMB im lokalen Netzwerk",color=Muted,fontSize=12.sp)
     Field("Name",s.name,{s=s.copy(name=it)})
@@ -124,19 +118,7 @@ enum class Editor{NONE,NAS,SYNC}
     if(msg.isNotBlank())Text(msg,color=if(msg.startsWith("✓"))Green else Muted,fontSize=12.sp)
     if(shares.isNotEmpty()){Text("Freigabe auswählen",color=Color.White,fontWeight=FontWeight.SemiBold);shares.forEach{sh->Surface(Modifier.fillMaxWidth().clickable{s=s.copy(share=sh)},shape=RoundedCornerShape(12.dp),color=if(s.share==sh)Color(0xFF17466A) else Panel){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Text("▣",color=Blue);Spacer(Modifier.width(10.dp));Text(sh,Modifier.weight(1f),color=Color.White);RadioButton(s.share==sh,null)}}}}
     Field("SMB-Freigabe",s.share,{s=s.copy(share=it)})
-   }else{
-    Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("UGREENlink",color=Color.White,fontWeight=FontWeight.Bold,fontSize=19.sp);Text("Optionaler Fernzugang",color=Muted,fontSize=12.sp)};Surface(shape=RoundedCornerShape(20.dp),color=Panel2){Text("OPTIONAL",Modifier.padding(10.dp,5.dp),color=Blue,fontSize=10.sp,fontWeight=FontWeight.Bold)}}
-    Text("UGREENlink ist optional und unabhängig von der lokalen SMB-Verbindung.",color=Muted,fontSize=12.sp)
-    Field("UGREENlink-ID",s.ugreenlinkId,{s=s.copy(ugreenlinkId=it)})
-    if(s.ugreenlinkId.isNotBlank()){
-     Field("UGREEN Benutzername",s.ugreenUsername,{s=s.copy(ugreenUsername=it)})
-     Field("UGREEN Passwort",s.ugreenPassword,{s=s.copy(ugreenPassword=it)},true)
-     Button(onClick={scope.launch{ugreenBusy=true;ugreenMsg=runCatching{withContext(Dispatchers.IO){testUgreenLink(s.ugreenlinkId)}}.fold({"✓ UGREENlink erreichbar · UGOS antwortet"},{"✕ "+(it.message?:"UGREENlink nicht erreichbar")});ugreenBusy=false}},enabled=!ugreenBusy,modifier=Modifier.fillMaxWidth()){Text(if(ugreenBusy)"UGREENlink wird geprüft …" else "UGREENlink testen",color=Color.White)}
-     if(ugreenMsg.isNotBlank())Text(ugreenMsg,color=if(ugreenMsg.startsWith("✓"))Green else MaterialTheme.colorScheme.error,fontSize=12.sp)
-     Text("Der Test prüft den offiziellen UGREENlink-Webzugang. Der NAS-Login wird erst für den späteren Datei-Transport verwendet.",color=Muted,fontSize=11.sp)
-    }
-   }
-   Spacer(Modifier.height(4.dp))
+      Spacer(Modifier.height(4.dp))
    Button(onClick={onSave(s.copy(name=s.name.ifBlank{s.host}))},enabled=(s.host.isNotBlank()&&s.share.isNotBlank()),modifier=Modifier.fillMaxWidth().height(52.dp),shape=RoundedCornerShape(12.dp)){Text("NAS-Verbindung speichern",color=if((s.host.isNotBlank()&&s.share.isNotBlank())||s.webdavUrl.isNotBlank())Color.White else Muted,fontWeight=FontWeight.Bold)}
    Spacer(Modifier.height(18.dp))
   }
@@ -157,7 +139,7 @@ enum class Editor{NONE,NAS,SYNC}
    }else if(step==0){
     Field("Name der Synchronisation",p.profileName,{p=p.copy(profileName=it)})
     Text("NAS auswählen",color=Color.White,fontWeight=FontWeight.Bold)
-    connections.forEach{n->val active=selected?.id==n.id;Card(Modifier.fillMaxWidth().clickable{selected=n;p=p.copy(host=n.host,share=n.share,username=n.username,password=n.password,domain=n.domain,name=n.name,ugreenlinkId=n.ugreenlinkId,ugreenUsername=n.ugreenUsername,ugreenPassword=n.ugreenPassword)},colors=CardDefaults.cardColors(containerColor=if(active)Color(0xFF17466A) else Panel)){Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){Text(n.name.ifBlank{n.host},Modifier.weight(1f),fontWeight=FontWeight.Bold,color=Color.White);RadioButton(active,null)}}}
+    connections.forEach{n->val active=selected?.id==n.id;Card(Modifier.fillMaxWidth().clickable{selected=n;p=p.copy(host=n.host,share=n.share,username=n.username,password=n.password,domain=n.domain,name=n.name)},colors=CardDefaults.cardColors(containerColor=if(active)Color(0xFF17466A) else Panel)){Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){Text(n.name.ifBlank{n.host},Modifier.weight(1f),fontWeight=FontWeight.Bold,color=Color.White);RadioButton(active,null)}}}
     Text("Richtung",color=Color.White,fontWeight=FontWeight.Bold)
     DirectionCard("Handy → NAS",p.direction==SyncDirection.PHONE_TO_NAS){p=p.copy(direction=SyncDirection.PHONE_TO_NAS)}
     DirectionCard("NAS → Handy",p.direction==SyncDirection.NAS_TO_PHONE){p=p.copy(direction=SyncDirection.NAS_TO_PHONE)}
@@ -202,14 +184,14 @@ enum class Editor{NONE,NAS,SYNC}
 @Composable private fun SettingsScreen(page:String?,open:(String?)->Unit){val context=LocalContext.current
  if(page!=null){Column(Modifier.fillMaxSize().background(Navy)){BackTitle(page){open(null)};Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){when(page){
   "Allgemein"->CardBox{Text("Darstellung",color=Color.White,fontWeight=FontWeight.Bold);Text("GalerieSync verwendet das optimierte dunkle Design.",color=Muted);Text("Benachrichtigungen und Sprache folgen derzeit den Android-Systemeinstellungen.",color=Muted,fontSize=12.sp)}
-  "WLAN-Einstellungen"->CardBox{Text("Nur WLAN",color=Color.White,fontWeight=FontWeight.Bold);Text("Automatische Synchronisationen verwenden eine ungemessene Netzwerkverbindung (WLAN).",color=Muted)}
+  "WLAN-Einstellungen"->VpnFallbackSettings(context)
   "Automatische Synchronisation"->CardBox{Text("Hintergrund-Synchronisation",color=Color.White,fontWeight=FontWeight.Bold);Text("Aktive Profile können alle 15 Minuten geprüft werden.",color=Muted);Button(onClick={schedule(context)},modifier=Modifier.fillMaxWidth()){Text("Automatik aktivieren",color=Color.White)}}
   "Daten & Speicher"->CardBox{Text("Lokale Daten",color=Color.White,fontWeight=FontWeight.Bold);Text("NAS-Zugangsdaten werden verschlüsselt gespeichert. GalerieSync löscht beim Synchronisieren keine Dateien automatisch.",color=Muted)}
   else->CardBox{Text("GalerieSync",color=Color.White,fontWeight=FontWeight.Bold,fontSize=20.sp);Text("Version 0.4.0",color=Muted);Text("Fotos und Videos zwischen Smartphone und NAS synchronisieren.",color=Muted)}
  }}};return}
  Column(Modifier.fillMaxSize()){Header("Einstellungen");Column(Modifier.padding(horizontal=16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(2.dp)){
   SettingsRow("⚙","Allgemein","Design, Benachrichtigungen, Sprache"){open("Allgemein")}
-  SettingsRow("◉","WLAN-Einstellungen","Nur WLAN, mobile Daten"){open("WLAN-Einstellungen")}
+  SettingsRow("◉","WLAN & VPN","Vertrauenswürdige WLANs · VPN-Fallback"){open("WLAN-Einstellungen")}
   SettingsRow("◷","Automatische Synchronisation","Zeitplan · Hintergrund"){open("Automatische Synchronisation")}
   SettingsRow("▣","Daten & Speicher","Speicherorte, Cache, Datenbank"){open("Daten & Speicher")}
   SettingsRow("ⓘ","Über die App","GalerieSync · Version 0.4.0"){open("Über die App")}
@@ -218,10 +200,3 @@ enum class Editor{NONE,NAS,SYNC}
 private fun syncDirectionText(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektional"}
 private fun syncProfileTitle(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektionale Synchronisation"}
 fun schedule(context:android.content.Context){val c=Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build();val r=PeriodicWorkRequestBuilder<SyncWorker>(15,TimeUnit.MINUTES).setConstraints(c).build();WorkManager.getInstance(context).enqueueUniquePeriodicWork("GalerieSync",ExistingPeriodicWorkPolicy.UPDATE,r)}
-
-private fun testUgreenLink(id:String){
- val clean=id.trim().removePrefix("https://ug.link/").trim('/')
- require(clean.isNotBlank()){"UGREENlink-ID fehlt"}
- val conn=(URL("https://ug.link/"+clean).openConnection() as HttpURLConnection).apply{instanceFollowRedirects=true;connectTimeout=10000;readTimeout=10000;requestMethod="GET";setRequestProperty("User-Agent","GalerieSync/0.4")}
- try{val code=conn.responseCode;if(code !in 200..399)error("UGREENlink antwortet mit HTTP $code")}finally{conn.disconnect()}
-}
