@@ -29,7 +29,7 @@ class SettingsStore(context:Context){
  fun loadAutoSyncValue():Int = prefs.getInt("auto_sync_value",15)
  fun loadAutoSyncUnit():String = prefs.getString("auto_sync_unit","MINUTES")?:"MINUTES"
  fun saveAutoSyncSchedule(value:Int,unit:String)=prefs.edit().putInt("auto_sync_value",value).putString("auto_sync_unit",unit).apply()
- fun loadNotificationsEnabled():Boolean = prefs.getBoolean("sync_notifications",true)
+ fun loadNotificationsEnabled():Boolean = prefs.getBoolean("sync_notifications",false)
  fun saveNotificationsEnabled(v:Boolean)=prefs.edit().putBoolean("sync_notifications",v).apply()
  fun loadSyncHistory():List<String> = (prefs.getString("sync_history","")?:"").lines().filter{it.isNotBlank()}
  fun addSyncHistory(entry:String){val items=(listOf(entry)+loadSyncHistory()).take(100);prefs.edit().putString("sync_history",items.joinToString("\n")).apply()}
