@@ -58,7 +58,7 @@ private val LightScheme=lightColorScheme(primary=Color(0xFF0878C9),onPrimary=Col
 class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);setContent{val store=remember{SettingsStore(this)};var mode by remember{mutableStateOf(store.loadThemeMode())};val systemDark=androidx.compose.foundation.isSystemInDarkTheme();val dark=mode=="DARK"||(mode=="SYSTEM"&&systemDark);SideEffect{window.statusBarColor=if(dark)android.graphics.Color.rgb(7,26,39) else android.graphics.Color.rgb(243,247,250);window.navigationBarColor=if(dark)android.graphics.Color.rgb(9,31,45) else android.graphics.Color.WHITE;WindowCompat.getInsetsController(window,window.decorView).apply{isAppearanceLightStatusBars=!dark;isAppearanceLightNavigationBars=!dark}};CompositionLocalProvider(LocalThemeMode provides mode,LocalSetThemeMode provides{v->mode=v;store.saveThemeMode(v)}){MaterialTheme(colorScheme=if(dark)Scheme else LightScheme){App()}}}}}
 private val LocalThemeMode=compositionLocalOf{"SYSTEM"}
 private val LocalSetThemeMode=compositionLocalOf<(String)->Unit>{{}}
-enum class Tab(val label:String,val icon:String){HOME("Übersicht","⌂"),SYNC("Synchronisation","↻"),NAS("NAS","▣"),SETTINGS("Einstellungen","⚙")}
+enum class Tab(val label:String,val icon:String){HOME("Übersicht","⌂"),SYNC("Synchronisation","↻"),NAS("NAS","▣")}
 enum class Editor{NONE,NAS,SYNC}
 
 @Composable fun App(){
@@ -86,13 +86,13 @@ enum class Editor{NONE,NAS,SYNC}
  if(showHistory){val hp=historyProfile;val all=store.loadSyncHistory();val filtered=if(hp==null)all else all.filter{it.contains("[${hp.id}]")};SyncHistoryScreen(filtered,hp?.profileName?.ifBlank{syncProfileTitle(hp.direction)}){showHistory=false;historyProfile=null};return}
  if(editor==Editor.NAS){NasEditor(editing?:NasSettings(),{editor=Editor.NONE},{saveNas(it);editor=Editor.NONE});return}
  if(editor==Editor.SYNC){SyncEditor(editing,nas,{editor=Editor.NONE},{saveProfile(it);editor=Editor.NONE});return}
+ if(settingsPage!=null){SettingsScreen(if(settingsPage=="ROOT")null else settingsPage,{settingsPage=it?:"ROOT"},{settingsPage=null});return}
  
- Scaffold(containerColor=MaterialTheme.colorScheme.background,bottomBar={NavigationBar(containerColor=MaterialTheme.colorScheme.surface){Tab.entries.forEach{t->NavigationBarItem(selected=tab==t,onClick={tab=t},icon={Text(t.icon,fontSize=20.sp)},label={Text(t.label,fontSize=10.sp)})}}}){pad->
+ Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={Row(Modifier.fillMaxWidth().padding(8.dp,6.dp),horizontalArrangement=Arrangement.End){IconButton(onClick={settingsPage="ROOT"}){Text("⚙",fontSize=24.sp,color=MaterialTheme.colorScheme.onSurface)}}},bottomBar={NavigationBar(containerColor=MaterialTheme.colorScheme.surface){Tab.entries.forEach{t->NavigationBarItem(selected=tab==t,onClick={tab=t},icon={Text(t.icon,fontSize=20.sp)},label={Text(t.label,fontSize=10.sp)})}}}){pad->
   Box(Modifier.padding(pad).fillMaxSize()){when(tab){
    Tab.HOME->Home(nas,profiles,status,running,syncCurrent,syncTotal,syncFile,syncSpeed,{val enabled=profiles.filter{it.enabled};if(enabled.isNotEmpty()&&!running){syncJob=scope.launch{for(p in enabled){while(running)kotlinx.coroutines.delay(100);runProfile(p);while(running)kotlinx.coroutines.delay(100)}}}})
    Tab.NAS->NasList(nas,nasTestStates,nasStorage,nasStorageUpdated,{editing=null;editor=Editor.NAS},{editing=it;editor=Editor.NAS},{deleteNas(it)},{n->scope.launch{status="NAS wird aktualisiert …";val result=runCatching{withContext(Dispatchers.IO){val smb=SmbProvider(n);smb.test();val info=smb.storageInfo();nasStorage=nasStorage+(n.id to info);store.saveNasStorage(n.id,info.total,info.free);val now=System.currentTimeMillis();nasStorageUpdated=nasStorageUpdated+(n.id to now);store.saveNasStorageUpdated(n.id,now)}};nasTestStates=nasTestStates+(n.id to result.isSuccess);status=result.fold({"NAS-Speicher aktualisiert"},{"Fehler · "+(it.message?:"Unbekannt")})}})
    Tab.SYNC->ProfileList(profiles,profileLastSync,running,syncCurrent,syncTotal,syncDoneBytes,syncTotalBytes,syncFile,syncSpeed,status,{editing=null;editor=Editor.SYNC},{editing=it;editor=Editor.SYNC},{p->profiles=profiles.filterNot{it.id==p.id};store.saveProfiles(profiles)},{p->val v=p.copy(enabled=!p.enabled);profiles=profiles.map{if(it.id==p.id)v else it};store.saveProfiles(profiles)},{runProfile(it)},{p->historyProfile=p;showHistory=true},{WorkManager.getInstance(context).cancelUniqueWork("GalerieSync-manual");syncJob?.cancel();syncJob=null;running=false;syncFile="";status="Synchronisation abgebrochen";if(VpnManager.isUp())scope.launch{VpnManager.disconnect()}})
-   Tab.SETTINGS->SettingsScreen(settingsPage,{settingsPage=it})
   }}
  }
 }
@@ -211,7 +211,7 @@ enum class Editor{NONE,NAS,SYNC}
 }
 
 @Composable private fun DirectionCard(t:String,on:Boolean,click:()->Unit){Card(Modifier.fillMaxWidth().clickable{click()},shape=RoundedCornerShape(14.dp),colors=CardDefaults.cardColors(containerColor=if(on)Color(0xFF17466A) else Panel)){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(t,Modifier.weight(1f),fontWeight=FontWeight.SemiBold,color=Color.White);RadioButton(on,click)}}}
-@Composable private fun SettingsScreen(page:String?,open:(String?)->Unit){val context=LocalContext.current
+@Composable private fun SettingsScreen(page:String?,open:(String?)->Unit,onClose:()->Unit){val context=LocalContext.current
  if(page!=null){Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)){BackTitle(page){open(null)};Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){when(page){
   "Allgemein"->ThemeSettings()
   "WLAN-Einstellungen"->VpnFallbackSettings(context)
@@ -219,7 +219,7 @@ enum class Editor{NONE,NAS,SYNC}
   "Daten & Speicher"->CardBox{Text("Lokale Daten",color=Color.White,fontWeight=FontWeight.Bold);Text("NAS-Zugangsdaten werden verschlüsselt gespeichert. Spiegel-Profile können entfernte Dateien auf der Gegenseite ebenfalls entfernen.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
   else->CardBox{Text("GalerieSync",color=Color.White,fontWeight=FontWeight.Bold,fontSize=20.sp);Text("Version 0.4.0",color=MaterialTheme.colorScheme.onSurfaceVariant);Text("Fotos und Videos zwischen Smartphone und NAS synchronisieren.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
  }}};return}
- Column(Modifier.fillMaxSize()){Header("Einstellungen");Column(Modifier.padding(horizontal=16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(2.dp)){
+ Column(Modifier.fillMaxSize()){Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically){Text("Einstellungen",fontSize=25.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));IconButton(onClick=onClose){Text("✕",fontSize=22.sp)}};Column(Modifier.padding(horizontal=16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(2.dp)){
   SettingsRow("⚙","Allgemein","Design, Benachrichtigungen, Sprache"){open("Allgemein")}
   SettingsRow("◉","WLAN & VPN","Vertrauenswürdige WLANs · VPN-Fallback"){open("WLAN-Einstellungen")}
   SettingsRow("◷","Automatische Synchronisation","Zeitplan · Hintergrund"){open("Automatische Synchronisation")}
