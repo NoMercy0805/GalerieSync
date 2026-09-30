@@ -30,6 +30,9 @@ class SettingsStore(context:Context){
  fun saveAutoSyncNetwork(v:String)=prefs.edit().putString("auto_sync_network",v).apply()
  fun loadAutoSyncCharging():Boolean = prefs.getBoolean("auto_sync_charging",false)
  fun saveAutoSyncCharging(v:Boolean)=prefs.edit().putBoolean("auto_sync_charging",v).apply()
+ fun loadAutoSyncStartHour():Int = prefs.getInt("auto_sync_start_hour",19)
+ fun loadAutoSyncStartMinute():Int = prefs.getInt("auto_sync_start_minute",0)
+ fun saveAutoSyncStartTime(hour:Int,minute:Int)=prefs.edit().putInt("auto_sync_start_hour",hour.coerceIn(0,23)).putInt("auto_sync_start_minute",minute.coerceIn(0,59)).apply()
  fun loadAutoSyncValue():Int = prefs.getInt("auto_sync_value",15)
  fun loadAutoSyncUnit():String = prefs.getString("auto_sync_unit","MINUTES")?:"MINUTES"
  fun saveAutoSyncSchedule(value:Int,unit:String)=prefs.edit().putInt("auto_sync_value",value).putString("auto_sync_unit",unit).apply()
