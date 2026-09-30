@@ -40,7 +40,7 @@ class SyncService(private val context:Context){
       target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)}
       context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(target)).use{dst->
        val buffer=ByteArray(256*1024);var currentFileBytes=0L;var lastReported=0L
-       while(true){val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);currentFileBytes+=read;if(currentFileBytes-lastReported>=1024*1024){lastReported=currentFileBytes;progressMutex.withLock{progress(SyncProgress(copied+skipped,total,(doneBytes+currentFileBytes).coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName))}}}
+       while(true){val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);currentFileBytes+=read;if(currentFileBytes-lastReported>=1024){lastReported=currentFileBytes;progressMutex.withLock{progress(SyncProgress(copied+skipped,total,(doneBytes+currentFileBytes).coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName))}}}
        dst.flush()
       }}}
       progressMutex.withLock{copied++;doneBytes+=m.size;progress(SyncProgress(copied+skipped,total,doneBytes.coerceAtMost(totalBytes),totalBytes,"Hochgeladen: "+m.displayName))}
