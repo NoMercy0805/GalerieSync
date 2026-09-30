@@ -40,7 +40,7 @@ object VpnManager {
   val b=backend?:GoBackend(context.applicationContext).also{backend=it}
   onStatus("Externes Netzwerk · VPN wird verbunden …")
   b.setState(tunnel,Tunnel.State.UP,cfg)
-  repeat(20){if(b.getState(tunnel)==Tunnel.State.UP){onStatus("SMB über FRITZ!Box-VPN");return@withContext true};delay(250)}
+  repeat(40){if(b.getState(tunnel)==Tunnel.State.UP){onStatus("VPN aktiv · warte auf NAS-Routing …");delay(1500);onStatus("SMB über FRITZ!Box-VPN");return@withContext true};delay(250)}
   error("VPN-Tunnel konnte nicht gestartet werden.")
  }
  suspend fun disconnect(onStatus:(String)->Unit={}){
