@@ -24,8 +24,8 @@ Starting a Gradle Daemon (subsequent builds will be faster)
 > Task :app:parseDebugLocalResources
 > Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
-> Task :app:processDebugManifestForPackage
 > Task :app:javaPreCompileDebug
+> Task :app:processDebugManifestForPackage
 > Task :app:mergeDebugShaders
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
@@ -35,34 +35,30 @@ Starting a Gradle Daemon (subsequent builds will be faster)
 > Task :app:processDebugResources
 > Task :app:checkDebugDuplicateClasses
 
-> Task :app:compileDebugKotlin FAILED
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:70:18 Unresolved reference 'SettingsScreen'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:84:732 Unresolved reference 'syncProfileTitle'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:84:841 Unresolved reference 'syncDirectionText'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:108:17 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:108:17 Not enough information to infer type argument for 'R'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:108:28 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:108:29 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:108:29 Not enough information to infer type argument for 'T'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:108:56 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:108:57 Unresolved reference 'testUgreenLink'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:109:9 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:109:9 Not enough information to infer type argument for 'T'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:109:14 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:123:1882 Unresolved reference 'DirectionCard'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:123:1999 Unresolved reference 'DirectionCard'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:123:2116 Unresolved reference 'DirectionCard'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:123:3710 Unresolved reference 'syncProfileTitle'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:125:13 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:126:13 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:126:362 Unresolved reference 'schedule'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:127:1 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:128:1 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:131:1 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:136:2 Syntax error: Expecting '}'.
+> Task :app:compileDebugKotlin
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:140:285 Unresolved reference 'webdavUrl'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/WebDavProvider.kt:14:28 Unresolved reference 'webdavUrl'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/WebDavProvider.kt:15:76 Unresolved reference 'webdavUsername'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/WebDavProvider.kt:15:91 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/WebDavProvider.kt:15:118 Overload resolution ambiguity between candidates:
+fun String?.plus(other: Any?): String
+fun <T> Array<T>.plus(element: T): Array<T>
+fun <T> Iterable<T>.plus(element: T): List<T>
+fun <T> Collection<T>.plus(element: T): List<T>
+fun <T> Set<T>.plus(element: T): Set<T>
+fun <T> Sequence<T>.plus(element: T): Sequence<T>
+fun Char.plus(other: String): String
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/WebDavProvider.kt:15:133 Unresolved reference 'webdavPassword'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/WebDavProvider.kt:15:148 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/WebDavProvider.kt:15:177 Overload resolution ambiguity between candidates:
+fun Array<out Byte>.toByteArray(): ByteArray
+fun Collection<Byte>.toByteArray(): ByteArray
+fun UByteArray.toByteArray(): ByteArray
+fun String.toByteArray(charset: Charset = ...): ByteArray
 
 > Task :app:mergeExtDexDebug
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790745043384.json
+> Task :app:compileDebugKotlin FAILED
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790755848485.json
 
 FAILURE: Build failed with an exception.
 
@@ -266,5 +262,5 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	... 2 more
 
 
-BUILD FAILED in 2m 12s
+BUILD FAILED in 1m 36s
 21 actionable tasks: 21 executed
