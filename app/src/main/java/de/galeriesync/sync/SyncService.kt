@@ -50,7 +50,7 @@ class SyncService(private val context:Context){
    }}.awaitAll()
   }
   if(settings.direction==SyncDirection.NAS_TO_PHONE||settings.direction==SyncDirection.BIDIRECTIONAL){
-   val existing=local.map{it.displayName.lowercase()}.toSet();val files=smb.listRecursive(root).filter{it.substringAfterLast('/').lowercase() !in existing};val total=files.size
+   val existing=local.map{structuredRelativePath(it.relativePath).lowercase()}.toSet();val files=smb.listRecursive(root).filter{remotePath->val rel=remotePath.removePrefix(root+"/");!rel.endsWith(".galeriesync-part")&&rel.lowercase() !in existing};val total=files.size
    progress(SyncProgress(0,total,0,0,"Dateien werden abgeglichen …"))
    files.forEach{p->try{downloadToMediaStore(smb,p,root);copied++;progress(SyncProgress(copied,total,0,0,"Heruntergeladen: "+p.substringAfterLast('/')))}catch(t:Throwable){failed++;lastError=t.message?:t.javaClass.simpleName;throw IOException("SMB-Verbindung unterbrochen bei "+p.substringAfterLast('/')+": "+lastError,t)}}
   }
