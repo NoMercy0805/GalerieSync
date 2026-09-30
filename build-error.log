@@ -32,9 +32,8 @@ Starting a Gradle Daemon (subsequent builds will be faster)
 > Task :app:compressDebugAssets
 > Task :app:desugarDebugFileDependencies
 > Task :app:mergeDebugJniLibFolders
-> Task :app:checkDebugDuplicateClasses
 > Task :app:processDebugManifestForPackage
-> Task :app:mergeDebugNativeLibs
+> Task :app:checkDebugDuplicateClasses
 > Task :app:l8DexDesugarLibDebug
 > Task :app:processDebugResources
 > Task :app:mergeExtDexDebug
@@ -42,13 +41,16 @@ Starting a Gradle Daemon (subsequent builds will be faster)
 > Task :app:validateSigningDebug
 > Task :app:writeDebugAppMetadata
 > Task :app:writeDebugSigningConfigVersions
+> Task :app:mergeDebugNativeLibs
 
 > Task :app:stripDebugDebugSymbols
 Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so, libwg-go.so, libwg-quick.so, libwg.so.
 
 > Task :app:compileDebugKotlin FAILED
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/worker/SyncWorker.kt:33:7 Suspension functions can only be called within coroutine body.
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790787883626.json
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:78:1028 Syntax error: Unexpected tokens (use ';' to separate expressions on the same line).
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:272:59 Syntax error: Expecting a top level declaration.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:272:60 Syntax error: Expecting a top level declaration.
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790788473610.json
 
 FAILURE: Build failed with an exception.
 
@@ -252,5 +254,5 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	... 2 more
 
 
-BUILD FAILED in 2m 14s
+BUILD FAILED in 2m 12s
 29 actionable tasks: 29 executed
