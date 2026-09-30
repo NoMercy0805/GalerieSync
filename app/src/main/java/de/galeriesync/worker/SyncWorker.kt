@@ -15,7 +15,7 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
  private val nm=applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
  private val channel="galeriesync_sync"
  private fun ensureChannel(){if(Build.VERSION.SDK_INT>=26)nm.createNotificationChannel(NotificationChannel(channel,"Synchronisation",NotificationManager.IMPORTANCE_LOW))}
- private fun notification(title:String,text:String,progress:Int?=null)=NotificationCompat.Builder(applicationContext,channel).setSmallIcon(android.R.drawable.stat_sys_upload).setContentTitle(title).setContentText(text).setOnlyAlertOnce(true).setOngoing(progress!=null).apply{if(progress!=null)setProgress(100,progress.coerceIn(0,100),false)}.build()
+ private fun notification(title:String,text:String,progress:Int?=null)=NotificationCompat.Builder(applicationContext,channel).setSmallIcon(android.R.drawable.stat_sys_upload).setContentTitle(title).setContentText(text).setStyle(NotificationCompat.BigTextStyle().bigText(text)).setOnlyAlertOnce(true).setSilent(true).setOngoing(progress!=null).apply{if(progress!=null)setProgress(100,progress.coerceIn(0,100),false)}.build()
  private fun foreground(text:String,percent:Int?=null):ForegroundInfo{ensureChannel();return ForegroundInfo(4101,notification("GalerieSync synchronisiert",text,percent))}
  private fun notifyDone(title:String,text:String){if(SettingsStore(applicationContext).loadNotificationsEnabled()){ensureChannel();nm.notify(4102,notification(title,text))}}
  override suspend fun doWork():Result{
@@ -30,7 +30,7 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
      SyncService(applicationContext).run(p){sp:SyncProgress->
       val percent=if(sp.totalBytes>0)((sp.doneBytes*100/sp.totalBytes).toInt()) else if(sp.totalFiles>0)(sp.doneFiles*100/sp.totalFiles) else 0
       val text=if(sp.totalFiles>0)"${sp.doneFiles} von ${sp.totalFiles} Dateien · ${formatBytes(sp.doneBytes)} / ${formatBytes(sp.totalBytes)}" else sp.message
-      if(showNotifications){ensureChannel();nm.notify(4101,notification("GalerieSync synchronisiert",text,percent))}
+      setForeground(foreground(text,percent));if(showNotifications){ensureChannel();nm.notify(4101,notification("GalerieSync synchronisiert","$percent % · $text",percent))}
      }
     }
    }finally{if(startedVpn)VpnManager.disconnect()}
