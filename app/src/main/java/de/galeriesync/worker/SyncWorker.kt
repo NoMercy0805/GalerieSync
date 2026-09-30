@@ -7,6 +7,7 @@ import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import de.galeriesync.data.SettingsStore
 import de.galeriesync.sync.SyncProgress
 import de.galeriesync.sync.SyncService
@@ -29,7 +30,7 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
      if(startedVpn)VpnManager.waitForSmb(p.host)
      SyncService(applicationContext).run(p){sp:SyncProgress->
       val percent=if(sp.totalBytes>0)((sp.doneBytes*100/sp.totalBytes).toInt()) else if(sp.totalFiles>0)(sp.doneFiles*100/sp.totalFiles) else 0
-      val text=if(sp.totalFiles>0)"${sp.doneFiles} von ${sp.totalFiles} Dateien · ${formatBytes(sp.doneBytes)} / ${formatBytes(sp.totalBytes)}" else sp.message
+      setProgress(workDataOf("doneFiles" to sp.doneFiles,"totalFiles" to sp.totalFiles,"doneBytes" to sp.doneBytes,"totalBytes" to sp.totalBytes,"message" to sp.message));val text=if(sp.totalFiles>0)"${sp.doneFiles} von ${sp.totalFiles} Dateien · ${formatBytes(sp.doneBytes)} / ${formatBytes(sp.totalBytes)}" else sp.message
       nm.notify(4101,notification("GalerieSync synchronisiert","$percent % · $text",percent))
      }
     }
