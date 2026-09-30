@@ -24,7 +24,7 @@ class SettingsStore(context:Context){
  fun saveTrustedWifi(v:Set<String>)=prefs.edit().putStringSet("trusted_wifi",v).apply()
  fun loadThemeMode():String = prefs.getString("theme_mode","SYSTEM")?:"SYSTEM"
  fun saveThemeMode(v:String)=prefs.edit().putString("theme_mode",v).apply()
- fun loadVpnConfig():String = prefs.getString("wireguard_config","")?:""
+ fun loadAutoSyncValue():Int = prefs.getInt("auto_sync_value",15)\n fun loadAutoSyncUnit():String = prefs.getString("auto_sync_unit","MINUTES")?:"MINUTES"\n fun saveAutoSyncSchedule(value:Int,unit:String)=prefs.edit().putInt("auto_sync_value",value).putString("auto_sync_unit",unit).apply()\n fun loadVpnConfig():String = prefs.getString("wireguard_config","")?:""
  fun saveVpnConfig(v:String)=prefs.edit().putString("wireguard_config",v).apply()
  fun load()=NasSettings(host=prefs.getString("host","")?:"",share=prefs.getString("share","")?:"",username=prefs.getString("username","")?:"",password=prefs.getString("password","")?:"",domain=prefs.getString("domain","")?:"",remoteFolder=prefs.getString("folder","GalerieSync")?:"GalerieSync",wifiOnly=prefs.getBoolean("wifiOnly",true),direction=runCatching{SyncDirection.valueOf(prefs.getString("direction",SyncDirection.PHONE_TO_NAS.name)!!)}.getOrDefault(SyncDirection.PHONE_TO_NAS),sourceFolders=prefs.getStringSet("sourceFolders",emptySet())?:emptySet())
  fun save(s:NasSettings)=prefs.edit().putString("host",s.host).putString("share",s.share).putString("username",s.username).putString("password",s.password).putString("domain",s.domain).putString("folder",s.remoteFolder).putBoolean("wifiOnly",s.wifiOnly).putString("direction",s.direction.name).putStringSet("sourceFolders",s.sourceFolders).apply()
