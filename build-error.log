@@ -24,20 +24,31 @@ Starting a Gradle Daemon (subsequent builds will be faster)
 > Task :app:parseDebugLocalResources
 > Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
-> Task :app:processDebugManifestForPackage
 > Task :app:javaPreCompileDebug
 > Task :app:mergeDebugShaders
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:mergeDebugAssets
 > Task :app:compressDebugAssets
-> Task :app:processDebugResources
-> Task :app:l8DexDesugarLibDebug
 > Task :app:desugarDebugFileDependencies
 > Task :app:mergeDebugJniLibFolders
+> Task :app:processDebugManifestForPackage
 > Task :app:checkDebugDuplicateClasses
+> Task :app:processDebugResources
+> Task :app:l8DexDesugarLibDebug
+> Task :app:mergeExtDexDebug
+> Task :app:mergeLibDexDebug
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:mergeDebugNativeLibs
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so, libwg-go.so, libwg-quick.so, libwg.so.
 
 > Task :app:compileDebugKotlin
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+    1. Kotlin compile daemon is ready
 e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:82:18 Unresolved reference 'SettingsScreen'.
 e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:82:60 Unresolved reference 'it'.
 e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:117:1135 Unresolved reference 'formatBytes'.
@@ -87,15 +98,12 @@ e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galerie
 e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:236:1 Modifier 'private' is not applicable to 'local function'.
 e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:238:1 Modifier 'private' is not applicable to 'local function'.
 e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:239:1 Modifier 'private' is not applicable to 'local function'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:239:254 Syntax error: Expecting '}'.
 e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/worker/SyncWorker.kt:14:106 Argument type mismatch: actual type is 'kotlin.Function3<de.galeriesync.sync.SyncProgress, ERROR CLASS: Cannot infer type for parameter <unused var>, ERROR CLASS: Cannot infer type for parameter <unused var>, kotlin.Unit>', but 'kotlin.Function1<de.galeriesync.sync.SyncProgress, kotlin.Unit>' was expected.
 e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/worker/SyncWorker.kt:14:109 Cannot infer type for this parameter. Please specify it explicitly.
 e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/worker/SyncWorker.kt:14:111 Cannot infer type for this parameter. Please specify it explicitly.
 
-> Task :app:mergeDebugNativeLibs
 > Task :app:compileDebugKotlin FAILED
-> Task :app:mergeExtDexDebug
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790767637067.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790767855150.json
 
 FAILURE: Build failed with an exception.
 
@@ -299,5 +307,5 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	... 2 more
 
 
-BUILD FAILED in 1m 31s
-24 actionable tasks: 24 executed
+BUILD FAILED in 2m 7s
+29 actionable tasks: 29 executed
