@@ -39,22 +39,63 @@ Starting a Gradle Daemon (subsequent builds will be faster)
 > Task :app:mergeDebugNativeLibs
 
 > Task :app:compileDebugKotlin
-e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
-    1. Kotlin compile daemon is ready
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:113:413 Unresolved reference 'running'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:113:524 Unresolved reference 'total'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:113:532 Unresolved reference 'current'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:113:550 Unresolved reference 'total'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:113:648 Unresolved reference 'total'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:113:658 Unresolved reference 'current'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:113:671 Unresolved reference 'total'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:113:691 Unresolved reference 'status'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:113:714 Unresolved reference 'file'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:113:737 Unresolved reference 'file'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:82:18 Unresolved reference 'SettingsScreen'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:82:60 Unresolved reference 'it'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:117:1135 Unresolved reference 'formatBytes'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:117:1167 Unresolved reference 'formatBytes'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:117:1197 Unresolved reference 'formatBytes'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1119 Unresolved reference 'formatBytes'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1149 Unresolved reference 'formatBytes'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1572 Unresolved reference 'syncProfileTitle'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1636 Unresolved reference 'syncDirectionText'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1672 Overload resolution ambiguity between candidates:
+fun String?.plus(other: Any?): String
+fun <T> Array<T>.plus(element: T): Array<T>
+fun <T> Iterable<T>.plus(element: T): List<T>
+fun <T> Collection<T>.plus(element: T): List<T>
+fun <T> Set<T>.plus(element: T): Set<T>
+fun <T> Sequence<T>.plus(element: T): Sequence<T>
+fun Char.plus(other: String): String
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:119:1704 Overload resolution ambiguity between candidates:
+fun String?.plus(other: Any?): String
+fun <T> Array<T>.plus(element: T): Array<T>
+fun <T> Iterable<T>.plus(element: T): List<T>
+fun <T> Collection<T>.plus(element: T): List<T>
+fun <T> Set<T>.plus(element: T): Set<T>
+fun <T> Sequence<T>.plus(element: T): Sequence<T>
+fun Char.plus(other: String): String
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:159:5 Unresolved reference 'DirectionCard'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:160:5 Unresolved reference 'DirectionCard'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:161:5 Unresolved reference 'DirectionCard'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:172:48 Unresolved reference 'folderGroupOrder'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:172:76 Unresolved reference 'folderRelativeSortKey'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:184:891 Unresolved reference 'syncProfileTitle'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:188:13 Modifier 'private' is not applicable to 'local function'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:189:13 Modifier 'private' is not applicable to 'local function'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:191:16 Unresolved reference 'ThemeSettings'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:192:25 Unresolved reference 'VpnFallbackSettings'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:193:214 Unresolved reference 'schedule'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:198:3 Unresolved reference 'SettingsRow'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:199:3 Unresolved reference 'SettingsRow'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:200:3 Unresolved reference 'SettingsRow'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:201:3 Unresolved reference 'SettingsRow'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:202:3 Unresolved reference 'SettingsRow'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:204:13 Modifier 'private' is not applicable to 'local function'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:205:13 Modifier 'private' is not applicable to 'local function'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:231:13 Modifier 'private' is not applicable to 'local function'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:232:1 Modifier 'private' is not applicable to 'local function'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:233:1 Modifier 'private' is not applicable to 'local function'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:236:1 Modifier 'private' is not applicable to 'local function'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:238:1 Modifier 'private' is not applicable to 'local function'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:239:1 Modifier 'private' is not applicable to 'local function'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:239:254 Syntax error: Expecting '}'.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/worker/SyncWorker.kt:14:106 Argument type mismatch: actual type is 'kotlin.Function3<de.galeriesync.sync.SyncProgress, ERROR CLASS: Cannot infer type for parameter <unused var>, ERROR CLASS: Cannot infer type for parameter <unused var>, kotlin.Unit>', but 'kotlin.Function1<de.galeriesync.sync.SyncProgress, kotlin.Unit>' was expected.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/worker/SyncWorker.kt:14:109 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/worker/SyncWorker.kt:14:111 Cannot infer type for this parameter. Please specify it explicitly.
 
-> Task :app:compileDebugKotlin FAILED
 > Task :app:mergeExtDexDebug
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790765383362.json
+> Task :app:compileDebugKotlin FAILED
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790767285066.json
 
 FAILURE: Build failed with an exception.
 
@@ -99,6 +140,35 @@ org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:com
 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:303)
 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.execute(DefaultPlanExecutor.java:459)
 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
+	at org.gradle.execution.plan.DefaultPlanExecutor.process(DefaultPlanExecutor.java:111)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph.executeWithServices(DefaultTaskExecutionGraph.java:138)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph.execute(DefaultTaskExecutionGraph.java:123)
+	at org.gradle.execution.SelectedTaskExecutionAction.execute(SelectedTaskExecutionAction.java:35)
+	at org.gradle.execution.DryRunBuildExecutionAction.execute(DryRunBuildExecutionAction.java:51)
+	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor$ExecuteTasks.call(BuildOperationFiringBuildWorkerExecutor.java:54)
+	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor$ExecuteTasks.call(BuildOperationFiringBuildWorkerExecutor.java:43)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor.execute(BuildOperationFiringBuildWorkerExecutor.java:40)
+	at org.gradle.internal.build.DefaultBuildLifecycleController.lambda$executeTasks$10(DefaultBuildLifecycleController.java:313)
+	at org.gradle.internal.model.StateTransitionController.doTransition(StateTransitionController.java:266)
+	at org.gradle.internal.model.StateTransitionController.lambda$tryTransition$8(StateTransitionController.java:177)
+	at org.gradle.internal.work.DefaultSynchronizer.withLock(DefaultSynchronizer.java:46)
+	at org.gradle.internal.model.StateTransitionController.tryTransition(StateTransitionController.java:177)
+	at org.gradle.internal.build.DefaultBuildLifecycleController.executeTasks(DefaultBuildLifecycleController.java:304)
+	at org.gradle.internal.build.DefaultBuildWorkGraphController$DefaultBuildWorkGraph.runWork(DefaultBuildWorkGraphController.java:220)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:263)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:127)
+	at org.gradle.composite.internal.DefaultBuildController.doRun(DefaultBuildController.java:181)
+	at org.gradle.composite.internal.DefaultBuildController.access$000(DefaultBuildController.java:50)
+	at org.gradle.composite.internal.DefaultBuildController$BuildOpRunnable.lambda$run$0(DefaultBuildController.java:198)
+	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:85)
+	at org.gradle.composite.internal.DefaultBuildController$BuildOpRunnable.run(DefaultBuildController.java:198)
 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
 	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:48)
 Caused by: org.gradle.workers.internal.DefaultWorkerExecutor$WorkExecutionException: A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
@@ -223,6 +293,35 @@ Caused by: org.gradle.workers.internal.DefaultWorkerExecutor$WorkExecutionExcept
 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:303)
 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.execute(DefaultPlanExecutor.java:459)
 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
+	at org.gradle.execution.plan.DefaultPlanExecutor.process(DefaultPlanExecutor.java:111)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph.executeWithServices(DefaultTaskExecutionGraph.java:138)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph.execute(DefaultTaskExecutionGraph.java:123)
+	at org.gradle.execution.SelectedTaskExecutionAction.execute(SelectedTaskExecutionAction.java:35)
+	at org.gradle.execution.DryRunBuildExecutionAction.execute(DryRunBuildExecutionAction.java:51)
+	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor$ExecuteTasks.call(BuildOperationFiringBuildWorkerExecutor.java:54)
+	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor$ExecuteTasks.call(BuildOperationFiringBuildWorkerExecutor.java:43)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor.execute(BuildOperationFiringBuildWorkerExecutor.java:40)
+	at org.gradle.internal.build.DefaultBuildLifecycleController.lambda$executeTasks$10(DefaultBuildLifecycleController.java:313)
+	at org.gradle.internal.model.StateTransitionController.doTransition(StateTransitionController.java:266)
+	at org.gradle.internal.model.StateTransitionController.lambda$tryTransition$8(StateTransitionController.java:177)
+	at org.gradle.internal.work.DefaultSynchronizer.withLock(DefaultSynchronizer.java:46)
+	at org.gradle.internal.model.StateTransitionController.tryTransition(StateTransitionController.java:177)
+	at org.gradle.internal.build.DefaultBuildLifecycleController.executeTasks(DefaultBuildLifecycleController.java:304)
+	at org.gradle.internal.build.DefaultBuildWorkGraphController$DefaultBuildWorkGraph.runWork(DefaultBuildWorkGraphController.java:220)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:263)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:127)
+	at org.gradle.composite.internal.DefaultBuildController.doRun(DefaultBuildController.java:181)
+	at org.gradle.composite.internal.DefaultBuildController.access$000(DefaultBuildController.java:50)
+	at org.gradle.composite.internal.DefaultBuildController$BuildOpRunnable.lambda$run$0(DefaultBuildController.java:198)
+	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:85)
+	at org.gradle.composite.internal.DefaultBuildController$BuildOpRunnable.run(DefaultBuildController.java:198)
 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
 	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:48)
 Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilation error. See log for more details
@@ -258,5 +357,5 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	... 2 more
 
 
-BUILD FAILED in 2m 17s
+BUILD FAILED in 2m 6s
 24 actionable tasks: 24 executed
