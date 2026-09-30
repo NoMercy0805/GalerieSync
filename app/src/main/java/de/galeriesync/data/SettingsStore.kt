@@ -24,6 +24,8 @@ class SettingsStore(context:Context){
  fun saveTrustedWifi(v:Set<String>)=prefs.edit().putStringSet("trusted_wifi",v).apply()
  fun loadThemeMode():String = prefs.getString("theme_mode","SYSTEM")?:"SYSTEM"
  fun saveThemeMode(v:String)=prefs.edit().putString("theme_mode",v).apply()
+ fun loadAutoSyncEnabled():Boolean = prefs.getBoolean("auto_sync_enabled",false)
+ fun saveAutoSyncEnabled(v:Boolean)=prefs.edit().putBoolean("auto_sync_enabled",v).apply()
  fun loadAutoSyncValue():Int = prefs.getInt("auto_sync_value",15)
  fun loadAutoSyncUnit():String = prefs.getString("auto_sync_unit","MINUTES")?:"MINUTES"
  fun saveAutoSyncSchedule(value:Int,unit:String)=prefs.edit().putInt("auto_sync_value",value).putString("auto_sync_unit",unit).apply()
