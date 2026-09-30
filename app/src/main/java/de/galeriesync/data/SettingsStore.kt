@@ -27,6 +27,8 @@ class SettingsStore(context:Context){
  fun loadAutoSyncValue():Int = prefs.getInt("auto_sync_value",15)
  fun loadAutoSyncUnit():String = prefs.getString("auto_sync_unit","MINUTES")?:"MINUTES"
  fun saveAutoSyncSchedule(value:Int,unit:String)=prefs.edit().putInt("auto_sync_value",value).putString("auto_sync_unit",unit).apply()
+ fun loadSyncHistory():List<String> = (prefs.getString("sync_history","")?:"").lines().filter{it.isNotBlank()}
+ fun addSyncHistory(entry:String){val items=(listOf(entry)+loadSyncHistory()).take(100);prefs.edit().putString("sync_history",items.joinToString("\n")).apply()}
  fun loadVpnConfig():String = prefs.getString("wireguard_config","")?:""
  fun saveVpnConfig(v:String)=prefs.edit().putString("wireguard_config",v).apply()
  fun load()=NasSettings(host=prefs.getString("host","")?:"",share=prefs.getString("share","")?:"",username=prefs.getString("username","")?:"",password=prefs.getString("password","")?:"",domain=prefs.getString("domain","")?:"",remoteFolder=prefs.getString("folder","GalerieSync")?:"GalerieSync",wifiOnly=prefs.getBoolean("wifiOnly",true),direction=runCatching{SyncDirection.valueOf(prefs.getString("direction",SyncDirection.PHONE_TO_NAS.name)!!)}.getOrDefault(SyncDirection.PHONE_TO_NAS),sourceFolders=prefs.getStringSet("sourceFolders",emptySet())?:emptySet())
