@@ -71,20 +71,11 @@ jobs:
           test -n "$APKSIGNER" || { echo "::error::apksigner not found"; exit 1; }
           CERT_OUTPUT=$("$APKSIGNER" verify --print-certs "$APK")
           echo "$CERT_OUTPUT"
-          APK_SHA256=$(printf '%s\n' "$CERT_OUTPUT" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1)
-          EXPECTED_SHA256=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | grep "SHA256:" | awk '{print $2}' | tr -d ':')
-          if [ -z "$APK_SHA256" ] || [ -z "$EXPECTED_SHA256" ]; then
-            echo "::error::Could not read SHA-256 certificate digest from APK or keystore."
-            exit 1
-          fi
-          if [ "$(echo "$APK_SHA256" | tr '[:upper:]' '[:lower:]')" != "$(echo "$EXPECTED_SHA256" | tr '[:upper:]' '[:lower:]')" ]; then
-            echo "::error::APK certificate does not match the configured keystore."
-            exit 1
-          fi
-          APK_FINGERPRINT=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | grep "SHA1:" | awk '{print $2}')
+          APK_SHA1=$(printf '%s\n' "$CERT_OUTPUT" | sed -n 's/^.*certificate SHA-1 digest: //p' | head -1 | tr '[:lower:]' '[:upper:]')
+          APK_FINGERPRINT=$(echo "$APK_SHA1" | sed 's/../&:/g;s/:$//')
           echo "APK signature SHA1: $APK_FINGERPRINT"
           EXPECTED="62:2C:81:31:BD:82:81:AF:DB:AB:FC:4E:DA:8D:41:33:29:C5:E5:10"
-          if [ "$APK_FINGERPRINT" != "$EXPECTED" ]; then
+          if [ -z "$APK_FINGERPRINT" ] || [ "$APK_FINGERPRINT" != "$EXPECTED" ]; then
             echo "::error::APK signature does not match the expected key! Expected $EXPECTED but got $APK_FINGERPRINT."
             exit 1
           fi
