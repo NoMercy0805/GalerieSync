@@ -20,13 +20,8 @@ class SyncService(private val context:Context){
   val parts=clean.split('/').filter{it.isNotBlank()}
   if(parts.size<2)return clean
   val top=parts.first()
-  val category=when(top.lowercase()){
-   "dcim","pictures"->"Bilder & Videos"
-   "movies"->"Bilder & Videos"
-   else->top
-  }
-  val rest=parts.drop(1).joinToString("/")
-  return if(rest.isBlank())category else "$category/$rest"
+  val content=if(top.lowercase() in setOf("dcim","pictures","movies"))parts.drop(1).joinToString("/") else parts.joinToString("/")
+  return if(content.isBlank())"Bilder & Videos" else "Bilder & Videos/$content"
  }
  private fun downloadToMediaStore(smb:SmbProvider,remotePath:String,root:String){val name=remotePath.substringAfterLast('/');val mime=when(name.substringAfterLast('.',"").lowercase()){"jpg","jpeg"->"image/jpeg";"png"->"image/png";"webp"->"image/webp";"heic"->"image/heic";"mp4"->"video/mp4";"mov"->"video/quicktime";"mkv"->"video/x-matroska";else->return};val collection=if(mime.startsWith("video/"))MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI;val values=ContentValues().apply{put(MediaStore.MediaColumns.DISPLAY_NAME,name);put(MediaStore.MediaColumns.MIME_TYPE,mime);val rel=remotePath.removePrefix(root).trimStart('/').substringBeforeLast('/',"");val base=if(mime.startsWith("video/"))"Movies/GalerieSync" else "Pictures/GalerieSync";put(MediaStore.MediaColumns.RELATIVE_PATH,if(rel.isBlank())base else "$base/$rel");put(MediaStore.MediaColumns.IS_PENDING,1)};val uri=context.contentResolver.insert(collection,values)?:error("MediaStore insert fehlgeschlagen");try{context.contentResolver.openOutputStream(uri)!!.use{out->BufferedOutputStream(out).use{dst->BufferedInputStream(smb.openInput(remotePath)).use{it.copyTo(dst)}}};values.clear();values.put(MediaStore.MediaColumns.IS_PENDING,0);context.contentResolver.update(uri,values,null,null)}catch(t:Throwable){context.contentResolver.delete(uri,null,null);throw t}}
 }
