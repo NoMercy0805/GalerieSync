@@ -20,7 +20,7 @@ class SmbProvider(private val settings:NasSettings){
  }
  fun diagnose():String=try{val root=SmbFile(serverUrl(),context);root.connect();"SMB-Server erreichbar"}catch(e:Exception){throw IllegalStateException(e.message ?: e.javaClass.simpleName,e)}
  fun test():Boolean{SmbFile(url(),context).connect();return true}
- fun storageInfo():SmbStorageInfo{val f=SmbFile(url(),context);f.connect();val free=f.diskFreeSpace;return SmbStorageInfo(0L,free)}
+ fun storageInfo():SmbStorageInfo{val f=SmbFile(url(),context);f.connect();val free=f.diskFreeSpace;val total=runCatching{f.length()}.getOrDefault(0L);return SmbStorageInfo(total,free)}
  fun ensureDirectory(path:String){val f=SmbFile(url(path),context);if(!f.exists())f.mkdirs()}
  fun listRecursive(path:String=""):List<String>{val out=mutableListOf<String>();val root=SmbFile(url(path),context);if(!root.exists())return out;root.listFiles().forEach{f->val rel=if(path.isBlank())f.name else path.trimEnd('/')+"/"+f.name;if(f.isDirectory)out+=listRecursive(rel) else out+=rel};return out}
  fun delete(path:String){val f=SmbFile(url(path),context);if(f.exists())f.delete()}
