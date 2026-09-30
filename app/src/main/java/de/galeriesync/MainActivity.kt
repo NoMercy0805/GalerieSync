@@ -50,7 +50,10 @@ private fun currentWifiName(context:android.content.Context):String?{val wm=cont
 private val Navy=Color(0xFF071A27);private val Panel=Color(0xFF102A3A);private val Panel2=Color(0xFF17384B)
 private val Blue=Color(0xFF3DA5FF);private val Green=Color(0xFF42D77D);private val Muted=Color(0xFF9CB1BF)
 private val Scheme=darkColorScheme(primary=Blue,onPrimary=Color.White,background=Navy,surface=Panel,surfaceVariant=Panel2,onBackground=Color.White,onSurface=Color.White,onSurfaceVariant=Color.White,outline=Color(0xFF345568))
-class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=android.graphics.Color.rgb(7,26,39);window.navigationBarColor=android.graphics.Color.rgb(9,31,45);WindowCompat.getInsetsController(window,window.decorView).apply{isAppearanceLightStatusBars=false;isAppearanceLightNavigationBars=false};setContent{MaterialTheme(colorScheme=Scheme){App()}}}}
+private val LightScheme=lightColorScheme(primary=Color(0xFF0878C9),onPrimary=Color.White,background=Color(0xFFF3F7FA),surface=Color.White,surfaceVariant=Color(0xFFE3EEF5),onBackground=Color(0xFF10212C),onSurface=Color(0xFF10212C),onSurfaceVariant=Color(0xFF405665),outline=Color(0xFF78909C))
+class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);setContent{val store=remember{SettingsStore(this)};var mode by remember{mutableStateOf(store.loadThemeMode())};val systemDark=androidx.compose.foundation.isSystemInDarkTheme();val dark=mode=="DARK"||(mode=="SYSTEM"&&systemDark);SideEffect{window.statusBarColor=if(dark)android.graphics.Color.rgb(7,26,39) else android.graphics.Color.rgb(243,247,250);window.navigationBarColor=if(dark)android.graphics.Color.rgb(9,31,45) else android.graphics.Color.WHITE;WindowCompat.getInsetsController(window,window.decorView).apply{isAppearanceLightStatusBars=!dark;isAppearanceLightNavigationBars=!dark}};CompositionLocalProvider(LocalThemeMode provides mode,LocalSetThemeMode provides{v->mode=v;store.saveThemeMode(v)}){MaterialTheme(colorScheme=if(dark)Scheme else LightScheme){App()}}}}}
+private val LocalThemeMode=compositionLocalOf{"SYSTEM"}
+private val LocalSetThemeMode=compositionLocalOf<(String)->Unit>{{}}
 enum class Tab(val label:String,val icon:String){HOME("Übersicht","⌂"),SYNC("Synchronisation","↻"),NAS("NAS","▣"),SETTINGS("Einstellungen","⚙")}
 enum class Editor{NONE,NAS,SYNC}
 
@@ -189,7 +192,7 @@ enum class Editor{NONE,NAS,SYNC}
 @Composable private fun DirectionCard(t:String,on:Boolean,click:()->Unit){Card(Modifier.fillMaxWidth().clickable{click()},shape=RoundedCornerShape(14.dp),colors=CardDefaults.cardColors(containerColor=if(on)Color(0xFF17466A) else Panel)){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(t,Modifier.weight(1f),fontWeight=FontWeight.SemiBold,color=Color.White);RadioButton(on,click)}}}
 @Composable private fun SettingsScreen(page:String?,open:(String?)->Unit){val context=LocalContext.current
  if(page!=null){Column(Modifier.fillMaxSize().background(Navy)){BackTitle(page){open(null)};Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){when(page){
-  "Allgemein"->CardBox{Text("Darstellung",color=Color.White,fontWeight=FontWeight.Bold);Text("GalerieSync verwendet das optimierte dunkle Design.",color=Muted);Text("Benachrichtigungen und Sprache folgen derzeit den Android-Systemeinstellungen.",color=Muted,fontSize=12.sp)}
+  "Allgemein"->ThemeSettings()
   "WLAN-Einstellungen"->VpnFallbackSettings(context)
   "Automatische Synchronisation"->CardBox{Text("Hintergrund-Synchronisation",color=Color.White,fontWeight=FontWeight.Bold);Text("Aktive Profile können alle 15 Minuten geprüft werden.",color=Muted);Button(onClick={schedule(context)},modifier=Modifier.fillMaxWidth()){Text("Automatik aktivieren",color=Color.White)}}
   "Daten & Speicher"->CardBox{Text("Lokale Daten",color=Color.White,fontWeight=FontWeight.Bold);Text("NAS-Zugangsdaten werden verschlüsselt gespeichert. GalerieSync löscht beim Synchronisieren keine Dateien automatisch.",color=Muted)}
@@ -202,6 +205,7 @@ enum class Editor{NONE,NAS,SYNC}
   SettingsRow("▣","Daten & Speicher","Speicherorte, Cache, Datenbank"){open("Daten & Speicher")}
   SettingsRow("ⓘ","Über die App","GalerieSync · Version 0.4.0"){open("Über die App")}
  }}}
+@Composable private fun ThemeSettings(){val mode=LocalThemeMode.current;val setMode=LocalSetThemeMode.current;CardBox{Text("Darstellung",fontWeight=FontWeight.Bold);Text("Wähle das Erscheinungsbild von GalerieSync.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp);listOf("SYSTEM" to "System","LIGHT" to "Hell","DARK" to "Dunkel").forEach{(v,label)->Row(Modifier.fillMaxWidth().clickable{setMode(v)}.padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){RadioButton(mode==v,{setMode(v)});Spacer(Modifier.width(8.dp));Text(label)}}}}
 @Composable private fun VpnFallbackSettings(context:android.content.Context){
  val store=remember{SettingsStore(context)};var trusted by remember{mutableStateOf(store.loadTrustedWifi())};var config by remember{mutableStateOf(store.loadVpnConfig())};var current by remember{mutableStateOf(currentWifiName(context))};var message by remember{mutableStateOf("")};var testing by remember{mutableStateOf(false)};val scope=rememberCoroutineScope()
  val wifiPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){current=currentWifiName(context);if(current==null)message="WLAN-Name konnte nicht gelesen werden."}
