@@ -21,7 +21,7 @@ data class SyncResult(val copied:Int,val skipped:Int,val failed:Int,val transpor
 class SyncService(private val context:Context){
  suspend fun run(settings:NasSettings,progress:(SyncProgress)->Unit={}):SyncResult=withContext(Dispatchers.IO){
   require(settings.host.isNotBlank()&&settings.share.isNotBlank()){"NAS-Adresse und Freigabe fehlen."};val smb=SmbProvider(settings);var connected=false;var connectError:Throwable?=null;repeat(5){if(!connected){runCatching{smb.test()}.onSuccess{connected=true}.onFailure{connectError=it};if(!connected)kotlinx.coroutines.delay(1000)}};if(!connected)throw IOException("NAS nach VPN-Aufbau nicht erreichbar: "+(connectError?.message?:"SMB-Verbindung fehlgeschlagen"),connectError);smb.ensureDirectory(settings.remoteFolder)
-  val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trimEnd('/')
+  val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trimEnd('/');val speedLimitBytes=SettingsStore(context).loadSpeedLimitKbps()*1024L
   var copied=0;var skipped=0;var failed=0;var lastError:String?=null
   var remote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.filterNot{it.endsWith(".galeriesync-part")}.toSet()
   val store=SettingsStore(context)
@@ -57,8 +57,8 @@ class SyncService(private val context:Context){
         target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)}
         val temp=target+".galeriesync-part";smb.delete(temp)
         context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(temp)).use{dst->
-         val buffer=ByteArray(256*1024);var lastReported=0L
-         while(true){val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);attemptBytes+=read;progressMutex.withLock{processedBytes+=read;if(attemptBytes-lastReported>=1024){lastReported=attemptBytes;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName))}}}
+         val buffer=ByteArray(256*1024);var lastReported=0L;val throttleStart=System.nanoTime()
+         while(true){val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);attemptBytes+=read;if(speedLimitBytes>0){val expectedMs=attemptBytes*1000L/speedLimitBytes;val elapsedMs=(System.nanoTime()-throttleStart)/1_000_000L;if(expectedMs>elapsedMs)kotlinx.coroutines.delay((expectedMs-elapsedMs).coerceAtMost(1000L))};progressMutex.withLock{processedBytes+=read;if(attemptBytes-lastReported>=1024){lastReported=attemptBytes;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName))}}}
          dst.flush()
         }}}
         if(smb.fileSize(temp)!=m.size)throw IOException("Größenprüfung fehlgeschlagen")
