@@ -68,7 +68,7 @@ enum class Editor{NONE,NAS,SYNC}
  fun runProfile(p:NasSettings){if(VpnManager.needsVpn(context)){val intent=VpnManager.permissionIntent(context);if(intent!=null){status="VPN-Freigabe erforderlich";vpnPermission.launch(intent);return}};syncJob=scope.launch{running=true;syncCurrent=0;syncTotal=0;syncFile="";var startedVpn=false;status="Synchronisiere "+p.profileName.ifBlank{"Profil"}+" …";val r=runCatching{startedVpn=VpnManager.connectIfNeeded(context){status=it};if(startedVpn)VpnManager.waitForSmb(p.host){status=it};SyncService(context).run(p){i,total,n->syncCurrent=i;syncTotal=total;syncFile=n;status=n}};if(startedVpn)VpnManager.disconnect();status=r.fold({result->if(result.failed==0)"Fertig über ${if(startedVpn)"SMB + VPN" else result.transport} · ${result.copied} übertragen · ${result.skipped} übersprungen" else "SMB · ${result.copied} übertragen · ${result.failed} Fehler · ${result.lastError?:"Details unbekannt"}"},{"Verbindungsfehler · "+(it.message?:"Unbekannt")});running=false;syncFile=""}}
  if(editor==Editor.NAS){NasEditor(editing?:NasSettings(),{editor=Editor.NONE},{saveNas(it);editor=Editor.NONE});return}
  if(editor==Editor.SYNC){SyncEditor(editing,nas,{editor=Editor.NONE},{saveProfile(it);editor=Editor.NONE});return}
- if(running){SyncProgressScreen(profiles.firstOrNull{it.enabled}?:NasSettings(),syncCurrent,syncTotal,syncFile){syncJob?.cancel();running=false;status="Synchronisation abgebrochen";syncFile=""};return}
+ if(running){SyncProgressScreen(profiles.firstOrNull{it.enabled}?:NasSettings(),syncCurrent,syncTotal,syncFile,status){syncJob?.cancel();running=false;status="Synchronisation abgebrochen";syncFile=""};return}
  Scaffold(containerColor=Navy,bottomBar={NavigationBar(containerColor=Color(0xFF091F2D)){Tab.entries.forEach{t->NavigationBarItem(selected=tab==t,onClick={tab=t},icon={Text(t.icon,fontSize=20.sp)},label={Text(t.label,fontSize=10.sp)})}}}){pad->
   Box(Modifier.padding(pad).fillMaxSize()){when(tab){
    Tab.HOME->Home(nas,profiles,status,running,syncCurrent,syncTotal,syncFile,{profiles.filter{it.enabled}.forEach{runProfile(it)}})
@@ -96,11 +96,11 @@ enum class Editor{NONE,NAS,SYNC}
  }
 }
 
-@Composable private fun SyncProgressScreen(profile:NasSettings,current:Int,total:Int,file:String,onCancel:()->Unit){
+@Composable private fun SyncProgressScreen(profile:NasSettings,current:Int,total:Int,file:String,status:String,onCancel:()->Unit){
  Column(Modifier.fillMaxSize().background(Navy)){BackTitle("Synchronisation",onCancel);Column(Modifier.fillMaxSize().padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(18.dp)){
   Spacer(Modifier.height(20.dp));Box(Modifier.size(170.dp),contentAlignment=Alignment.Center){CircularProgressIndicator(progress={if(total>0)current.toFloat()/total else 0f},modifier=Modifier.fillMaxSize(),strokeWidth=10.dp);Text("↻",fontSize=54.sp,color=Color.White)}
   Text("Synchronisiere …",fontSize=24.sp,fontWeight=FontWeight.Bold,color=Color.White);Text(if(total>0)"$current von $total Dateien" else "Dateien werden vorbereitet …",color=Muted)
-  CardBox{Text(file.ifBlank{"Verbindung wird vorbereitet …"},color=Color.White,fontWeight=FontWeight.SemiBold);Text(if(file.isBlank())"Warte …" else "Wird synchronisiert …",color=Blue,fontSize=12.sp)}
+  CardBox{Text(file.ifBlank{status.ifBlank{"Verbindung wird vorbereitet …"}},color=Color.White,fontWeight=FontWeight.SemiBold);Text(if(file.isBlank())status.ifBlank{"Warte …"} else "Wird synchronisiert …",color=if(status.contains("Fehler",true))MaterialTheme.colorScheme.error else Blue,fontSize=12.sp)}
   Spacer(Modifier.weight(1f));OutlinedButton(onClick=onCancel,modifier=Modifier.fillMaxWidth().height(54.dp)){Text("Abbrechen",color=Color.White)}
  }}
 }
