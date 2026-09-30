@@ -61,7 +61,7 @@ enum class Editor{NONE,NAS,SYNC}
  fun deleteNas(v:NasSettings){nas=nas.filterNot{it.id==v.id};profiles=profiles.filterNot{it.host==v.host&&it.share==v.share};store.saveConnections(nas);store.saveProfiles(profiles)}
  fun saveProfile(v:NasSettings){profiles=profiles.filterNot{it.id==v.id}+v;store.saveProfiles(profiles)}
  BackHandler(enabled=editor!=Editor.NONE){editor=Editor.NONE;editing=null}
- fun runProfile(p:NasSettings){scope.launch{running=true;status="Synchronisiere "+p.profileName.ifBlank{"Profil"}+" …";val r=runCatching{SyncService(context).run(p){_,_,n->status=n}};status=r.fold({"Fertig · "+it.copied+" übertragen · "+it.failed+" Fehler"},{"Fehler · "+(it.message?:"Unbekannt")});running=false}}
+ fun runProfile(p:NasSettings){scope.launch{running=true;status="Synchronisiere "+p.profileName.ifBlank{"Profil"}+" …";val r=runCatching{SyncService(context).run(p){_,_,n->status=n}};status=r.fold({result->if(result.failed==0)"Fertig über ${result.transport} · ${result.copied} übertragen · ${result.skipped} übersprungen" else "SMB · ${result.copied} übertragen · ${result.failed} Fehler · ${result.lastError?:"Details unbekannt"}"},{"SMB-Fehler · "+(it.message?:"Unbekannt")});running=false}}
  if(editor==Editor.NAS){NasEditor(editing?:NasSettings(),{editor=Editor.NONE},{saveNas(it);editor=Editor.NONE});return}
  if(editor==Editor.SYNC){SyncEditor(editing,nas,{editor=Editor.NONE},{saveProfile(it);editor=Editor.NONE});return}
  Scaffold(containerColor=Navy,bottomBar={NavigationBar(containerColor=Color(0xFF091F2D)){Tab.entries.forEach{t->NavigationBarItem(selected=tab==t,onClick={tab=t},icon={Text(t.icon,fontSize=20.sp)},label={Text(t.label,fontSize=10.sp)})}}}){pad->
