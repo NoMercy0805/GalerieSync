@@ -32,6 +32,12 @@ jobs:
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
           FINGERPRINT=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | grep "SHA1:" | awk '{print $2}')
           echo "Signing key SHA1: $FINGERPRINT"
+          EXPECTED="62:2C:81:31:BD:82:81:AF:DB:AB:FC:4E:DA:8D:41:33:29:C5:E5:10"
+          if [ "$FINGERPRINT" != "$EXPECTED" ]; then
+            echo "::error::Keystore fingerprint mismatch! Expected $EXPECTED but got $FINGERPRINT. Refusing to build with the wrong signing key."
+            exit 1
+          fi
+          echo "Signing key verified against expected fingerprint."
 
       - name: Build debug APK
         run: gradle assembleDebug
@@ -40,7 +46,14 @@ jobs:
         run: |
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -f "$APK" || { echo "::error::APK not found"; exit 1; }
-          keytool -printcert -jarfile "$APK" | grep "SHA1:" || { echo "::error::Could not verify APK signature"; exit 1; }
+          APK_FINGERPRINT=$(keytool -printcert -jarfile "$APK" | grep "SHA1:" | awk '{print $2}')
+          echo "APK signature SHA1: $APK_FINGERPRINT"
+          EXPECTED="62:2C:81:31:BD:82:81:AF:DB:AB:FC:4E:DA:8D:41:33:29:C5:E5:10"
+          if [ "$APK_FINGERPRINT" != "$EXPECTED" ]; then
+            echo "::error::APK signature does not match the expected key! Expected $EXPECTED but got $APK_FINGERPRINT."
+            exit 1
+          fi
+          echo "APK signature verified against expected fingerprint."
 
       - uses: actions/upload-artifact@v4
         with:
