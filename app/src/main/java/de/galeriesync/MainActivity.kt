@@ -2,6 +2,7 @@ package de.galeriesync
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -41,6 +42,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
+
+private fun currentWifiName(context:android.content.Context):String?{val wm=context.applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as? WifiManager?:return null;return runCatching{wm.connectionInfo?.ssid?.trim('"')}.getOrNull()?.takeIf{it.isNotBlank()&&it!="<unknown ssid>"} }
 
 private val Navy=Color(0xFF071A27);private val Panel=Color(0xFF102A3A);private val Panel2=Color(0xFF17384B)
 private val Blue=Color(0xFF3DA5FF);private val Green=Color(0xFF42D77D);private val Muted=Color(0xFF9CB1BF)
@@ -100,7 +103,7 @@ enum class Editor{NONE,NAS,SYNC}
  }}
 }
 
-@Composable private fun NasList(items:List<NasSettings>,testStates:Map<String,Boolean>,onAdd:()->Unit,onEdit:(NasSettings)->Unit,onDelete:(NasSettings)->Unit,onTest:(NasSettings)->Unit){Column(Modifier.fillMaxSize()){Header("NAS","Verbindungen verwalten");Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){if(items.isEmpty())CardBox{Text("Noch keine NAS-Verbindung",fontWeight=FontWeight.Bold);Text("Lege SMB und optional UGREENlink-Zugangsdaten an.",color=Muted)};items.forEach{n->CardBox{Row(verticalAlignment=Alignment.CenterVertically){val testState=testStates[n.id];Text("▣",fontSize=30.sp,color=when(testState){true->Green;false->MaterialTheme.colorScheme.error;null->Color.White});Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(n.name.ifBlank{n.host},fontWeight=FontWeight.Bold);Text(n.host+" · "+n.share,color=Muted,fontSize=12.sp)}};Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){TextButton(onClick={onTest(n)}){Text("Test")};TextButton(onClick={onEdit(n)}){Text("Bearbeiten")};TextButton(onClick={onDelete(n)}){Text("Löschen",color=MaterialTheme.colorScheme.error)}}}};Button(onClick=onAdd,modifier=Modifier.fillMaxWidth()){Text("+  Neue NAS-Verbindung")}}}}
+@Composable private fun NasList(items:List<NasSettings>,testStates:Map<String,Boolean>,onAdd:()->Unit,onEdit:(NasSettings)->Unit,onDelete:(NasSettings)->Unit,onTest:(NasSettings)->Unit){Column(Modifier.fillMaxSize()){Header("NAS","Verbindungen verwalten");Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){if(items.isEmpty())CardBox{Text("Noch keine NAS-Verbindung",fontWeight=FontWeight.Bold);Text("Lege eine SMB-Verbindung zu deiner NAS an.",color=Muted)};items.forEach{n->CardBox{Row(verticalAlignment=Alignment.CenterVertically){val testState=testStates[n.id];Text("▣",fontSize=30.sp,color=when(testState){true->Green;false->MaterialTheme.colorScheme.error;null->Color.White});Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(n.name.ifBlank{n.host},fontWeight=FontWeight.Bold);Text(n.host+" · "+n.share,color=Muted,fontSize=12.sp)}};Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){TextButton(onClick={onTest(n)}){Text("Test")};TextButton(onClick={onEdit(n)}){Text("Bearbeiten")};TextButton(onClick={onDelete(n)}){Text("Löschen",color=MaterialTheme.colorScheme.error)}}}};Button(onClick=onAdd,modifier=Modifier.fillMaxWidth()){Text("+  Neue NAS-Verbindung")}}}}
 
 @Composable private fun ProfileList(items:List<NasSettings>,running:Boolean,onAdd:()->Unit,onEdit:(NasSettings)->Unit,onDelete:(NasSettings)->Unit,onToggle:(NasSettings)->Unit,onRun:(NasSettings)->Unit){Column(Modifier.fillMaxSize()){Header("Synchronisationen","Ordner, Richtung und Ziel frei verwalten");Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){if(items.isEmpty())CardBox{Text("Noch keine Synchronisation",fontWeight=FontWeight.Bold);Text("Erstelle beliebig viele Profile und wähle pro Profil eigene Ordner.",color=Muted)};items.forEach{p->CardBox{Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(p.profileName.ifBlank{syncProfileTitle(p.direction)},fontWeight=FontWeight.Bold);Text(syncDirectionText(p.direction)+" · "+p.sourceFolders.size.toString()+" Ordner",color=Muted,fontSize=12.sp);Text((p.name.ifBlank{p.host})+"  →  /"+p.remoteFolder,color=Muted,fontSize=12.sp);Text(if(p.enabled)"● Aktiv" else "○ Inaktiv",color=if(p.enabled)Green else Muted,fontSize=12.sp)};Switch(p.enabled,{onToggle(p)})};Row{TextButton(onClick={onRun(p)},enabled=!running&&p.enabled){Text("Jetzt")};TextButton(onClick={onEdit(p)}){Text("Bearbeiten")};TextButton(onClick={onDelete(p)}){Text("Löschen",color=MaterialTheme.colorScheme.error)}}}};Button(onClick=onAdd,enabled=true,modifier=Modifier.fillMaxWidth()){Text("+  Neue Synchronisation")}}}}
 
@@ -197,17 +200,29 @@ enum class Editor{NONE,NAS,SYNC}
   SettingsRow("ⓘ","Über die App","GalerieSync · Version 0.4.0"){open("Über die App")}
  }}}
 @Composable private fun VpnFallbackSettings(context:android.content.Context){
- val store=remember{SettingsStore(context)};var wifi by remember{mutableStateOf(store.loadTrustedWifi().joinToString(", "))};var config by remember{mutableStateOf(store.loadVpnConfig())}
- CardBox{
-  Text("VPN-Fallback",color=Color.White,fontWeight=FontWeight.Bold)
-  Text("In den hier eingetragenen WLANs wird SMB direkt verwendet. In allen anderen Netzwerken soll vor dem Sync der FRITZ!Box-WireGuard-Tunnel verwendet werden.",color=Muted,fontSize=12.sp)
-  Spacer(Modifier.height(10.dp))
-  Field("WLAN-Namen (SSID, mit Komma trennen)",wifi,{wifi=it})
-  Text("Beispiel: Zuhause, Zuhause-5GHz",color=Muted,fontSize=11.sp)
-  Spacer(Modifier.height(8.dp))
-  OutlinedTextField(value=config,onValueChange={config=it},label={Text("WireGuard-Konfiguration der FRITZ!Box")},modifier=Modifier.fillMaxWidth().height(180.dp),colors=OutlinedTextFieldDefaults.colors(focusedContainerColor=Panel,unfocusedContainerColor=Panel,focusedTextColor=Color.White,unfocusedTextColor=Color.White))
-  Text("Die Konfiguration wird verschlüsselt im App-Speicher abgelegt. Der automatische Tunnel folgt im nächsten Schritt.",color=Muted,fontSize=11.sp)
-  Button(onClick={store.saveTrustedWifi(wifi.split(",").map{it.trim()}.filter{it.isNotBlank()}.toSet());store.saveVpnConfig(config)},modifier=Modifier.fillMaxWidth()){Text("VPN-Fallback speichern",color=Color.White)}
+ val store=remember{SettingsStore(context)};var trusted by remember{mutableStateOf(store.loadTrustedWifi())};var config by remember{mutableStateOf(store.loadVpnConfig())};var current by remember{mutableStateOf(currentWifiName(context))};var message by remember{mutableStateOf("")}
+ val wifiPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){current=currentWifiName(context);if(current==null)message="WLAN-Name konnte nicht gelesen werden."}
+ val importConfig=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null){config=runCatching{context.contentResolver.openInputStream(uri)?.bufferedReader()?.use{it.readText()}.orEmpty()}.getOrDefault("");if(config.isNotBlank()){store.saveVpnConfig(config);message="WireGuard-Konfiguration importiert ✓"}}}
+ fun refreshWifi(){val needed=if(Build.VERSION.SDK_INT>=33)arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES)else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION);if(needed.any{ContextCompat.checkSelfPermission(context,it)!=PackageManager.PERMISSION_GRANTED})wifiPermission.launch(needed) else current=currentWifiName(context)}
+ LaunchedEffect(Unit){refreshWifi()}
+ Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
+  CardBox{
+   Text("Heim-WLANs",color=Color.White,fontWeight=FontWeight.Bold,fontSize=18.sp)
+   Text("In diesen WLANs verbindet sich GalerieSync direkt per SMB. Außerhalb wird später automatisch das FRITZ!Box-VPN verwendet.",color=Muted,fontSize=12.sp)
+   Spacer(Modifier.height(10.dp))
+   Text(current?.let{"Aktuell verbunden: $it"}?:"Aktuelles WLAN nicht erkannt",color=if(current!=null)Green else Muted,fontWeight=FontWeight.SemiBold)
+   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={current?.let{trusted=trusted+it;store.saveTrustedWifi(trusted);message="$it als Heim-WLAN gespeichert ✓"}?:refreshWifi()},modifier=Modifier.weight(1f)){Text(if(current!=null)"Dieses WLAN hinzufügen" else "WLAN erkennen",color=Color.White)}}
+   if(trusted.isNotEmpty()){Spacer(Modifier.height(8.dp));trusted.sorted().forEach{ssid->Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(12.dp),color=Panel2){Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){Text("◉",color=Green);Spacer(Modifier.width(10.dp));Text(ssid,Modifier.weight(1f),color=Color.White);TextButton(onClick={trusted=trusted-ssid;store.saveTrustedWifi(trusted)}){Text("Entfernen",color=MaterialTheme.colorScheme.error)}}}}}
+  }
+  CardBox{
+   Text("FRITZ!Box VPN",color=Color.White,fontWeight=FontWeight.Bold,fontSize=18.sp)
+   Text(if(config.isBlank())"Noch nicht eingerichtet" else "WireGuard-Konfiguration eingerichtet ✓",color=if(config.isBlank())Muted else Green)
+   Text("Exportiere die WireGuard-Konfiguration in der FRITZ!Box und wähle anschließend einfach die .conf-Datei aus.",color=Muted,fontSize=12.sp)
+   Spacer(Modifier.height(10.dp))
+   Button(onClick={importConfig.launch(arrayOf("text/plain","application/octet-stream","*/*"))},modifier=Modifier.fillMaxWidth()){Text(if(config.isBlank())"WireGuard-Datei auswählen" else "Konfiguration ersetzen",color=Color.White)}
+   if(config.isNotBlank())TextButton(onClick={config="";store.saveVpnConfig("");message="VPN-Konfiguration entfernt"}){Text("VPN-Konfiguration entfernen",color=MaterialTheme.colorScheme.error)}
+  }
+  if(message.isNotBlank())Text(message,color=if(message.contains("✓"))Green else Muted,fontSize=12.sp)
  }
 }
 @Composable private fun SettingsRow(icon:String,title:String,subtitle:String,onClick:()->Unit){Surface(Modifier.fillMaxWidth().clickable{onClick()},color=Panel){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(icon,fontSize=24.sp,color=Color.White);Spacer(Modifier.width(14.dp));Column(Modifier.weight(1f)){Text(title,color=Color.White,fontWeight=FontWeight.Bold);Text(subtitle,color=Muted,fontSize=12.sp)};Text("›",color=Color.White,fontSize=26.sp)}}}
