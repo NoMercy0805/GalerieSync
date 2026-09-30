@@ -38,8 +38,12 @@ class SyncService(private val context:Context){
      if(relative in remote){progressMutex.withLock{skipped++;doneBytes+=m.size;progress(SyncProgress(copied+skipped,total,doneBytes,totalBytes,"Übersprungen: "+m.displayName))}}
      else try{
       target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)}
-      context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(target)).use{dst->src.copyTo(dst)}}}
-      progressMutex.withLock{copied++;doneBytes+=m.size;progress(SyncProgress(copied+skipped,total,doneBytes,totalBytes,"Hochgeladen: "+m.displayName))}
+      context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(target)).use{dst->
+       val buffer=ByteArray(256*1024);var currentFileBytes=0L;var lastReported=0L
+       while(true){val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);currentFileBytes+=read;if(currentFileBytes-lastReported>=1024*1024){lastReported=currentFileBytes;progressMutex.withLock{progress(SyncProgress(copied+skipped,total,(doneBytes+currentFileBytes).coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName))}}}
+       dst.flush()
+      }}}
+      progressMutex.withLock{copied++;doneBytes+=m.size;progress(SyncProgress(copied+skipped,total,doneBytes.coerceAtMost(totalBytes),totalBytes,"Hochgeladen: "+m.displayName))}
      }catch(t:Throwable){progressMutex.withLock{failed++;lastError=t.message?:t.javaClass.simpleName};throw IOException("SMB-Verbindung unterbrochen bei "+m.displayName+": "+(t.message?:t.javaClass.simpleName),t)}
     }
    }}.awaitAll()
