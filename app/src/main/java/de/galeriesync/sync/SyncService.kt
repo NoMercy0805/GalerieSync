@@ -25,25 +25,26 @@ class SyncService(private val context:Context){
   var remote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.toSet()
   if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL){
    val localPaths=local.map{structuredRelativePath(it.relativePath)}.toSet()
-   val obsolete=remote-localPaths
-   obsolete.forEach{rel->smb.delete(root+"/"+rel)}
-   remote=remote-obsolete
+   if(settings.direction==SyncDirection.PHONE_TO_NAS){val obsolete=remote-localPaths;obsolete.forEach{rel->smb.delete(root+"/"+rel)};remote=remote-obsolete}
    val total=local.size
-   val totalBytes=local.sumOf{it.size};var doneBytes=0L
+   val totalBytes=local.sumOf{it.size};var processedBytes=0L
    progress(SyncProgress(0,total,0,totalBytes,"Dateien werden abgeglichen …"))
    val progressMutex=Mutex();val uploadSlots=Semaphore(4)
    local.map{m->async{
     uploadSlots.withPermit{
      val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative
-     if(relative in remote){progressMutex.withLock{skipped++;doneBytes+=m.size;progress(SyncProgress(copied+skipped,total,doneBytes,totalBytes,"Übersprungen: "+m.displayName))}}
+     if(relative in remote&&smb.fileSize(target)==m.size){progressMutex.withLock{skipped++;processedBytes+=m.size;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Übersprungen: "+m.displayName))}}
      else try{
       target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)}
-      context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(target)).use{dst->
+      val temp=target+".galeriesync-part";smb.delete(temp)
+      context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(temp)).use{dst->
        val buffer=ByteArray(256*1024);var currentFileBytes=0L;var lastReported=0L
-       while(true){val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);currentFileBytes+=read;if(currentFileBytes-lastReported>=1024){lastReported=currentFileBytes;progressMutex.withLock{progress(SyncProgress(copied+skipped,total,(doneBytes+currentFileBytes).coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName))}}}
+       while(true){val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);currentFileBytes+=read;progressMutex.withLock{processedBytes+=read;if(currentFileBytes-lastReported>=1024){lastReported=currentFileBytes;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName))}}}
        dst.flush()
       }}}
-      progressMutex.withLock{copied++;doneBytes+=m.size;progress(SyncProgress(copied+skipped,total,doneBytes.coerceAtMost(totalBytes),totalBytes,"Hochgeladen: "+m.displayName))}
+      if(smb.fileSize(temp)!=m.size)throw IOException("Größenprüfung fehlgeschlagen: "+m.displayName)
+      smb.move(temp,target)
+      progressMutex.withLock{copied++;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Hochgeladen: "+m.displayName))}
      }catch(t:Throwable){progressMutex.withLock{failed++;lastError=t.message?:t.javaClass.simpleName};throw IOException("SMB-Verbindung unterbrochen bei "+m.displayName+": "+(t.message?:t.javaClass.simpleName),t)}
     }
    }}.awaitAll()
@@ -58,7 +59,7 @@ class SyncService(private val context:Context){
  private fun structuredRelativePath(relativePath:String):String{
   val clean=relativePath.trimStart('/')
   val parts=clean.split('/').filter{it.isNotBlank()}
-  if(parts.size<2)return clean
+  if(parts.size<2)return if(clean.isBlank())"Bilder & Videos" else "Bilder & Videos/$clean"
   val top=parts.first()
   val content=if(top.lowercase() in setOf("dcim","pictures","movies"))parts.drop(1).joinToString("/") else parts.joinToString("/")
   return if(content.isBlank())"Bilder & Videos" else "Bilder & Videos/$content"
