@@ -4,9 +4,14 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import de.galeriesync.data.SettingsStore
 import de.galeriesync.sync.SyncService
+import de.galeriesync.vpn.VpnManager
 class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(appContext,params){
  override suspend fun doWork():Result=runCatching{
   val profiles=SettingsStore(applicationContext).loadProfiles().filter{it.enabled}
-  profiles.forEach{SyncService(applicationContext).run(it){_,_,_->}}
+  var startedVpn=false
+  try{
+   if(profiles.isNotEmpty())startedVpn=VpnManager.connectIfNeeded(applicationContext)
+   profiles.forEach{SyncService(applicationContext).run(it){_,_,_->}}
+  }finally{if(startedVpn)VpnManager.disconnect()}
  }.fold({Result.success()},{Result.retry()})
 }
