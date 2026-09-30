@@ -44,7 +44,7 @@ import java.net.URL
 
 private val Navy=Color(0xFF071A27);private val Panel=Color(0xFF102A3A);private val Panel2=Color(0xFF17384B)
 private val Blue=Color(0xFF3DA5FF);private val Green=Color(0xFF42D77D);private val Muted=Color(0xFF9CB1BF)
-private val Scheme=darkColorScheme(primary=Blue,background=Navy,surface=Panel,surfaceVariant=Panel2,onBackground=Color.White,onSurface=Color.White,onSurfaceVariant=Color.White,outline=Color(0xFF345568))
+private val Scheme=darkColorScheme(primary=Blue,onPrimary=Color.White,background=Navy,surface=Panel,surfaceVariant=Panel2,onBackground=Color.White,onSurface=Color.White,onSurfaceVariant=Color.White,outline=Color(0xFF345568))
 class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);setContent{MaterialTheme(colorScheme=Scheme){App()}}}}
 enum class Tab(val label:String,val icon:String){HOME("Übersicht","⌂"),SYNC("Synchronisation","↻"),NAS("NAS","▣"),SETTINGS("Einstellungen","⚙")}
 enum class Editor{NONE,NAS,SYNC}
@@ -84,38 +84,37 @@ enum class Editor{NONE,NAS,SYNC}
 @Composable private fun ProfileList(items:List<NasSettings>,running:Boolean,onAdd:()->Unit,onEdit:(NasSettings)->Unit,onDelete:(NasSettings)->Unit,onToggle:(NasSettings)->Unit,onRun:(NasSettings)->Unit){Column(Modifier.fillMaxSize()){Header("Synchronisationen","Ordner, Richtung und Ziel frei verwalten");Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){if(items.isEmpty())CardBox{Text("Noch keine Synchronisation",fontWeight=FontWeight.Bold);Text("Erstelle beliebig viele Profile und wähle pro Profil eigene Ordner.",color=Muted)};items.forEach{p->CardBox{Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(p.profileName.ifBlank{syncProfileTitle(p.direction)},fontWeight=FontWeight.Bold);Text(p.sourceFolders.size.toString()+" Ordner · "+syncDirectionText(p.direction),color=Muted,fontSize=12.sp);Text((p.name.ifBlank{p.host})+"  →  /"+p.remoteFolder,color=Muted,fontSize=12.sp)};Switch(p.enabled,{onToggle(p)})};Row{TextButton(onClick={onRun(p)},enabled=!running&&p.enabled){Text("Jetzt")};TextButton(onClick={onEdit(p)}){Text("Bearbeiten")};TextButton(onClick={onDelete(p)}){Text("Löschen",color=MaterialTheme.colorScheme.error)}}}};Button(onClick=onAdd,enabled=true,modifier=Modifier.fillMaxWidth()){Text("+  Neue Synchronisation")}}}}
 
 @Composable private fun NasEditor(initial:NasSettings,onBack:()->Unit,onSave:(NasSettings)->Unit){
- var s by remember{mutableStateOf(initial)};var shares by remember{mutableStateOf(emptyList<String>())};var msg by remember{mutableStateOf("")};var ugreenMsg by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var ugreenBusy by remember{mutableStateOf(false)};val scope=rememberCoroutineScope()
+ var s by remember{mutableStateOf(initial)};var mode by remember{mutableIntStateOf(0)};var shares by remember{mutableStateOf(emptyList<String>())};var msg by remember{mutableStateOf("")};var ugreenMsg by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var ugreenBusy by remember{mutableStateOf(false)};val scope=rememberCoroutineScope()
  Column(Modifier.fillMaxSize().background(Navy)){
   BackTitle(if(initial.host.isBlank())"NAS hinzufügen" else "NAS bearbeiten",onBack)
-  Column(Modifier.padding(horizontal=20.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){
-   Text("Lokale Verbindung",fontWeight=FontWeight.Bold,fontSize=19.sp)
-   Text("SMB",color=Blue,fontSize=12.sp,fontWeight=FontWeight.Bold)
-   Field("Name",s.name,{s=s.copy(name=it)})
-   Field("Server / IP-Adresse",s.host,{s=s.copy(host=it)})
-   Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){Box(Modifier.weight(1f)){Field("Benutzername",s.username,{s=s.copy(username=it)})};Box(Modifier.weight(1f)){Field("Passwort",s.password,{s=s.copy(password=it)},true)}}
-   Button(onClick={scope.launch{busy=true;msg=runCatching{shares=withContext(Dispatchers.IO){SmbProvider(s.copy(share="")).listShares()};if(shares.isEmpty())"SMB erreichbar · Freigabe manuell eintragen" else "✓ "+shares.size+" Freigaben gefunden"}.getOrElse{"✕ "+(it.message?:it.javaClass.simpleName)};busy=false}},enabled=!busy&&s.host.isNotBlank()&&s.username.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text(if(busy)"Suche …" else "Verbindung testen & Freigaben suchen")}
-   if(msg.isNotBlank())Text(msg,color=if(msg.startsWith("✓"))Green else Muted,fontSize=12.sp)
-   if(shares.isNotEmpty()){Text("Freigabe auswählen",fontWeight=FontWeight.SemiBold);shares.forEach{sh->Surface(Modifier.fillMaxWidth().clickable{s=s.copy(share=sh)},shape=RoundedCornerShape(12.dp),color=if(s.share==sh)Color(0xFF17466A) else Panel){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Text("▣",color=Blue);Spacer(Modifier.width(10.dp));Text(sh,Modifier.weight(1f),color=Color.White);RadioButton(s.share==sh,null)}}}}
-   Field("SMB-Freigabe",s.share,{s=s.copy(share=it)})
-   Spacer(Modifier.height(6.dp));HorizontalDivider(color=Color(0xFF24485C));Spacer(Modifier.height(2.dp))
-   Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("UGREENlink",fontWeight=FontWeight.Bold,fontSize=19.sp);Text("Optionaler Fernzugang",color=Muted,fontSize=12.sp)};Surface(shape=RoundedCornerShape(20.dp),color=Panel2){Text("OPTIONAL",Modifier.padding(10.dp,5.dp),color=Blue,fontSize=10.sp,fontWeight=FontWeight.Bold)}}
-   Field("UGREENlink-ID",s.ugreenlinkId,{s=s.copy(ugreenlinkId=it)})
-   if(s.ugreenlinkId.isNotBlank()){
-    Field("UGREEN Benutzername",s.ugreenUsername,{s=s.copy(ugreenUsername=it)})
-    Field("UGREEN Passwort",s.ugreenPassword,{s=s.copy(ugreenPassword=it)},true)
-    Button(onClick={scope.launch{
-      ugreenBusy=true
-      ugreenMsg=runCatching{withContext(Dispatchers.IO){testUgreenLink(s.ugreenlinkId)}}
-       .fold({"✓ UGREENlink erreichbar · UGOS antwortet"},{"✕ "+(it.message?:"UGREENlink nicht erreichbar")})
-      ugreenBusy=false
-    }},enabled=!ugreenBusy,modifier=Modifier.fillMaxWidth()){
-      Text(if(ugreenBusy)"UGREENlink wird geprüft …" else "UGREENlink testen")
+  Row(Modifier.fillMaxWidth().padding(horizontal=20.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+   listOf("SMB","UGREENlink").forEachIndexed{i,t->val active=mode==i;Surface(Modifier.weight(1f).clickable{mode=i},shape=RoundedCornerShape(12.dp),color=if(active)Color(0xFF17466A) else Panel){Text(t,Modifier.padding(vertical=12.dp),color=if(active)Color.White else Muted,fontWeight=FontWeight.Bold,textAlign=androidx.compose.ui.text.style.TextAlign.Center)}}
+  }
+  Column(Modifier.padding(20.dp,16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){
+   if(mode==0){
+    Text("Lokale Verbindung",color=Color.White,fontWeight=FontWeight.Bold,fontSize=19.sp)
+    Text("SMB im lokalen Netzwerk",color=Muted,fontSize=12.sp)
+    Field("Name",s.name,{s=s.copy(name=it)})
+    Field("Server / IP-Adresse",s.host,{s=s.copy(host=it)})
+    Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){Box(Modifier.weight(1f)){Field("Benutzername",s.username,{s=s.copy(username=it)})};Box(Modifier.weight(1f)){Field("Passwort",s.password,{s=s.copy(password=it)},true)}}
+    Button(onClick={scope.launch{busy=true;msg=runCatching{shares=withContext(Dispatchers.IO){SmbProvider(s.copy(share="")).listShares()};if(shares.isEmpty())"SMB erreichbar · Freigabe manuell eintragen" else "✓ "+shares.size+" Freigaben gefunden"}.getOrElse{"✕ "+(it.message?:it.javaClass.simpleName)};busy=false}},enabled=!busy&&s.host.isNotBlank()&&s.username.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text(if(busy)"Suche …" else "Verbindung testen & Freigaben suchen",color=if(!busy&&s.host.isNotBlank()&&s.username.isNotBlank())Color.White else Muted)}
+    if(msg.isNotBlank())Text(msg,color=if(msg.startsWith("✓"))Green else Muted,fontSize=12.sp)
+    if(shares.isNotEmpty()){Text("Freigabe auswählen",color=Color.White,fontWeight=FontWeight.SemiBold);shares.forEach{sh->Surface(Modifier.fillMaxWidth().clickable{s=s.copy(share=sh)},shape=RoundedCornerShape(12.dp),color=if(s.share==sh)Color(0xFF17466A) else Panel){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Text("▣",color=Blue);Spacer(Modifier.width(10.dp));Text(sh,Modifier.weight(1f),color=Color.White);RadioButton(s.share==sh,null)}}}}
+    Field("SMB-Freigabe",s.share,{s=s.copy(share=it)})
+   }else{
+    Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("UGREENlink",color=Color.White,fontWeight=FontWeight.Bold,fontSize=19.sp);Text("Optionaler Fernzugang",color=Muted,fontSize=12.sp)};Surface(shape=RoundedCornerShape(20.dp),color=Panel2){Text("OPTIONAL",Modifier.padding(10.dp,5.dp),color=Blue,fontSize=10.sp,fontWeight=FontWeight.Bold)}}
+    Text("UGREENlink ist optional und unabhängig von der lokalen SMB-Verbindung.",color=Muted,fontSize=12.sp)
+    Field("UGREENlink-ID",s.ugreenlinkId,{s=s.copy(ugreenlinkId=it)})
+    if(s.ugreenlinkId.isNotBlank()){
+     Field("UGREEN Benutzername",s.ugreenUsername,{s=s.copy(ugreenUsername=it)})
+     Field("UGREEN Passwort",s.ugreenPassword,{s=s.copy(ugreenPassword=it)},true)
+     Button(onClick={scope.launch{ugreenBusy=true;ugreenMsg=runCatching{withContext(Dispatchers.IO){testUgreenLink(s.ugreenlinkId)}}.fold({"✓ UGREENlink erreichbar · UGOS antwortet"},{"✕ "+(it.message?:"UGREENlink nicht erreichbar")});ugreenBusy=false}},enabled=!ugreenBusy,modifier=Modifier.fillMaxWidth()){Text(if(ugreenBusy)"UGREENlink wird geprüft …" else "UGREENlink testen",color=Color.White)}
+     if(ugreenMsg.isNotBlank())Text(ugreenMsg,color=if(ugreenMsg.startsWith("✓"))Green else MaterialTheme.colorScheme.error,fontSize=12.sp)
+     Text("Der Test prüft den offiziellen UGREENlink-Webzugang. Der NAS-Login wird erst für den späteren Datei-Transport verwendet.",color=Muted,fontSize=11.sp)
     }
-    if(ugreenMsg.isNotBlank())Text(ugreenMsg,color=if(ugreenMsg.startsWith("✓"))Green else MaterialTheme.colorScheme.error,fontSize=12.sp)
-    Text("Der Test prüft den offiziellen UGREENlink-Webzugang. Der NAS-Login wird erst für den späteren Datei-Transport verwendet.",color=Muted,fontSize=11.sp)
    }
    Spacer(Modifier.height(4.dp))
-   Button(onClick={onSave(s.copy(name=s.name.ifBlank{s.host}))},enabled=s.host.isNotBlank()&&s.share.isNotBlank(),modifier=Modifier.fillMaxWidth().height(52.dp),shape=RoundedCornerShape(12.dp)){Text("NAS-Verbindung speichern",fontWeight=FontWeight.Bold)}
+   Button(onClick={onSave(s.copy(name=s.name.ifBlank{s.host}))},enabled=s.host.isNotBlank()&&s.share.isNotBlank(),modifier=Modifier.fillMaxWidth().height(52.dp),shape=RoundedCornerShape(12.dp)){Text("NAS-Verbindung speichern",color=if(s.host.isNotBlank()&&s.share.isNotBlank())Color.White else Muted,fontWeight=FontWeight.Bold)}
    Spacer(Modifier.height(18.dp))
   }
  }
