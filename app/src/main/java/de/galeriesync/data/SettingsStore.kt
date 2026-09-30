@@ -38,6 +38,8 @@ class SettingsStore(context:Context){
  fun loadNasStorage():Map<String,Pair<Long,Long>>{val raw=prefs.getString("nas_storage","{}")?:"{}";return runCatching{val o=JSONObject(raw);o.keys().asSequence().associateWith{k->val v=o.getJSONObject(k);v.optLong("total",0L) to v.optLong("free",0L)}}.getOrDefault(emptyMap())}
  fun saveNasStorage(id:String,total:Long,free:Long){val raw=prefs.getString("nas_storage","{}")?:"{}";val o=runCatching{JSONObject(raw)}.getOrDefault(JSONObject());o.put(id,JSONObject().put("total",total).put("free",free));prefs.edit().putString("nas_storage",o.toString()).apply()}
  fun removeNasStorage(id:String){val raw=prefs.getString("nas_storage","{}")?:"{}";val o=runCatching{JSONObject(raw)}.getOrDefault(JSONObject());o.remove(id);prefs.edit().putString("nas_storage",o.toString()).apply()}
+ fun loadNasStorageUpdated():Map<String,Long>{val raw=prefs.getString("nas_storage_updated","{}")?:"{}";return runCatching{val o=JSONObject(raw);o.keys().asSequence().associateWith{o.optLong(it,0L)}}.getOrDefault(emptyMap())}
+ fun saveNasStorageUpdated(id:String,time:Long){val raw=prefs.getString("nas_storage_updated","{}")?:"{}";val o=runCatching{JSONObject(raw)}.getOrDefault(JSONObject());o.put(id,time);prefs.edit().putString("nas_storage_updated",o.toString()).apply()}
  fun loadSyncHistory():List<String> = (prefs.getString("sync_history","")?:"").lines().filter{it.isNotBlank()}
  fun addSyncHistory(entry:String){val items=(listOf(entry)+loadSyncHistory()).take(100);prefs.edit().putString("sync_history",items.joinToString("\n")).apply()}
  fun loadVpnConfig():String = prefs.getString("wireguard_config","")?:""
