@@ -25,6 +25,7 @@ class SmbProvider(private val settings:NasSettings){
  fun listRecursive(path:String=""):List<String>{val out=mutableListOf<String>();val root=SmbFile(url(path),context);if(!root.exists())return out;root.listFiles().forEach{f->val rel=if(path.isBlank())f.name else path.trimEnd('/')+"/"+f.name;if(f.isDirectory)out+=listRecursive(rel) else out+=rel};return out}
  fun delete(path:String){val f=SmbFile(url(path),context);if(f.exists())f.delete()}
  fun fileSize(path:String):Long{val f=SmbFile(url(path),context);return if(f.exists())f.length() else -1L}
+ fun lastModified(path:String):Long{val f=SmbFile(url(path),context);return if(f.exists())f.lastModified() else 0L}
  fun move(from:String,to:String){val src=SmbFile(url(from),context);val dst=SmbFile(url(to),context);if(dst.exists())dst.delete();src.renameTo(dst)}
  fun openInput(path:String):InputStream=SmbFile(url(path),context).inputStream
  fun openOutput(path:String):OutputStream=SmbFile(url(path),context).outputStream
