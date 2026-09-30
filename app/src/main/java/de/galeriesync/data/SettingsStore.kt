@@ -26,6 +26,10 @@ class SettingsStore(context:Context){
  fun saveThemeMode(v:String)=prefs.edit().putString("theme_mode",v).apply()
  fun loadAutoSyncEnabled():Boolean = prefs.getBoolean("auto_sync_enabled",false)
  fun saveAutoSyncEnabled(v:Boolean)=prefs.edit().putBoolean("auto_sync_enabled",v).apply()
+ fun loadAutoSyncNetwork():String = prefs.getString("auto_sync_network","WIFI")?:"WIFI"
+ fun saveAutoSyncNetwork(v:String)=prefs.edit().putString("auto_sync_network",v).apply()
+ fun loadAutoSyncCharging():Boolean = prefs.getBoolean("auto_sync_charging",false)
+ fun saveAutoSyncCharging(v:Boolean)=prefs.edit().putBoolean("auto_sync_charging",v).apply()
  fun loadAutoSyncValue():Int = prefs.getInt("auto_sync_value",15)
  fun loadAutoSyncUnit():String = prefs.getString("auto_sync_unit","MINUTES")?:"MINUTES"
  fun saveAutoSyncSchedule(value:Int,unit:String)=prefs.edit().putInt("auto_sync_value",value).putString("auto_sync_unit",unit).apply()
