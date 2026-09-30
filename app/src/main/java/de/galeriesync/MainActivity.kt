@@ -247,15 +247,15 @@ enum class Editor{NONE,NAS,SYNC}
 private fun syncDirectionText(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektional"}
 private fun syncProfileTitle(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektionale Synchronisation"}
 @Composable private fun AutoSyncSettings(context:android.content.Context){
- val store=remember{SettingsStore(context)};var value by remember{mutableStateOf(store.loadAutoSyncValue().toString())};var unit by remember{mutableStateOf(store.loadAutoSyncUnit())};var saved by remember{mutableStateOf("")}
+ val store=remember{SettingsStore(context)};var value by remember{mutableStateOf(store.loadAutoSyncValue().toString())};var unit by remember{mutableStateOf(store.loadAutoSyncUnit())};var saved by remember{mutableStateOf("")};var enabled by remember{mutableStateOf(store.loadAutoSyncEnabled())}
  CardBox{
   Text("Hintergrund-Synchronisation",fontWeight=FontWeight.Bold,fontSize=18.sp)
-  Text("Lege fest, wie oft aktive Profile automatisch geprüft werden.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)
+  Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("Automatisch synchronisieren",fontWeight=FontWeight.SemiBold);Text(if(enabled)"Aktiv" else "Deaktiviert",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)};Switch(checked=enabled,onCheckedChange={on->enabled=on;store.saveAutoSyncEnabled(on);if(on){val raw=value.toLongOrNull()?:15L;val minutes=when(unit){"HOURS"->raw*60;"DAYS"->raw*1440;"WEEKS"->raw*10080;else->raw}.coerceAtLeast(15);schedule(context,minutes);saved="Automatische Synchronisation aktiviert"}else{WorkManager.getInstance(context).cancelUniqueWork("GalerieSync");saved="Automatische Synchronisation deaktiviert"}})};Text("Lege fest, wie oft aktive Profile automatisch geprüft werden.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)
   Spacer(Modifier.height(8.dp))
   OutlinedTextField(value=value,onValueChange={value=it.filter(Char::isDigit).take(4)},label={Text("Intervall")},singleLine=true,modifier=Modifier.fillMaxWidth())
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("MINUTES" to "Minuten","HOURS" to "Stunden","DAYS" to "Tage","WEEKS" to "Wochen").forEach{(v,label)->FilterChip(selected=unit==v,onClick={unit=v},label={Text(label)})}}
   Text("Android führt Hintergrundarbeit nicht sekundengenau aus. Das kleinste unterstützte Intervall sind 15 Minuten.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)
-  Button(onClick={val raw=value.toLongOrNull()?:15L;val minutes=when(unit){"HOURS"->raw*60;"DAYS"->raw*1440;"WEEKS"->raw*10080;else->raw}.coerceAtLeast(15);store.saveAutoSyncSchedule(raw.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),unit);schedule(context,minutes);saved="Automatik gespeichert · $value "+when(unit){"HOURS"->"Stunden";"DAYS"->"Tage";"WEEKS"->"Wochen";else->"Minuten"}},modifier=Modifier.fillMaxWidth()){Text("Zeitplan speichern & aktivieren")}
+  Button(onClick={val raw=value.toLongOrNull()?:15L;val minutes=when(unit){"HOURS"->raw*60;"DAYS"->raw*1440;"WEEKS"->raw*10080;else->raw}.coerceAtLeast(15);store.saveAutoSyncSchedule(raw.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),unit);enabled=true;store.saveAutoSyncEnabled(true);schedule(context,minutes);saved="Automatik gespeichert · $value "+when(unit){"HOURS"->"Stunden";"DAYS"->"Tage";"WEEKS"->"Wochen";else->"Minuten"}},modifier=Modifier.fillMaxWidth()){Text("Zeitplan speichern & aktivieren")}
   if(saved.isNotBlank())Text(saved,color=Green,fontSize=12.sp)
  }
 }
