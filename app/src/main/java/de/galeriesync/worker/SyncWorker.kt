@@ -11,7 +11,7 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
   var startedVpn=false
   try{
    if(profiles.isNotEmpty())startedVpn=VpnManager.connectIfNeeded(applicationContext)
-   profiles.forEach{p->if(startedVpn)VpnManager.waitForSmb(p.host);SyncService(applicationContext).run(p){_,_,_->}}
+   profiles.forEach{p->if(startedVpn)VpnManager.waitForSmb(p.host);SyncService(applicationContext).run(p){_->}}
   }finally{if(startedVpn)VpnManager.disconnect()}
  }.fold({Result.success()},{Result.retry()})
 }
