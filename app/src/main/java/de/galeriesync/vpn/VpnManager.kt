@@ -10,6 +10,8 @@ import com.wireguard.config.Config
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.net.InetSocketAddress
+import java.net.Socket
 
 object VpnManager {
  private var backend:GoBackend?=null
@@ -44,6 +46,16 @@ object VpnManager {
  suspend fun disconnect(onStatus:(String)->Unit={}){
   withContext(Dispatchers.IO){backend?.let{runCatching{it.setState(tunnel,Tunnel.State.DOWN,null)}}}
   onStatus("VPN getrennt")
+ }
+ suspend fun waitForSmb(host:String,onStatus:(String)->Unit={}):Unit=withContext(Dispatchers.IO){
+  onStatus("VPN aktiv · warte auf Route zur NAS …")
+  var last:String?=null
+  repeat(20){
+   val ok=runCatching{Socket().use{s->s.connect(InetSocketAddress(host,445),1500)}}.onFailure{last=it.message}.isSuccess
+   if(ok){onStatus("VPN aktiv · NAS-Port 445 erreichbar ✓");return@withContext}
+   delay(500)
+  }
+  error("VPN aktiv, aber NAS $host:445 nicht erreichbar. Prüfe AllowedIPs/FRITZ!Box-Heimnetz. ${last?:""}")
  }
  fun isUp():Boolean=runCatching{backend?.getState(tunnel)==Tunnel.State.UP}.getOrDefault(false)
 }
