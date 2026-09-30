@@ -8,6 +8,12 @@ import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import java.io.IOException
 data class SyncProgress(val doneFiles:Int,val totalFiles:Int,val doneBytes:Long,val totalBytes:Long,val message:String)
 data class SyncResult(val copied:Int,val skipped:Int,val failed:Int,val transport:String="SMB",val lastError:String?=null)
@@ -25,15 +31,18 @@ class SyncService(private val context:Context){
    val total=local.size
    val totalBytes=local.sumOf{it.size};var doneBytes=0L
    progress(SyncProgress(0,total,0,totalBytes,"Dateien werden abgeglichen …"))
-   local.forEach{m->
-    val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative
-    if(relative in remote){skipped++;doneBytes+=m.size;progress(SyncProgress(copied+skipped,total,doneBytes,totalBytes,"Übersprungen: "+m.displayName))}
-    else try{
-     target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)}
-     context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(target)).use{dst->src.copyTo(dst)}}}
-     copied++;doneBytes+=m.size;progress(SyncProgress(copied+skipped,total,doneBytes,totalBytes,"Hochgeladen: "+m.displayName))
-    }catch(t:Throwable){failed++;lastError=t.message?:t.javaClass.simpleName;throw IOException("SMB-Verbindung unterbrochen bei "+m.displayName+": "+lastError,t)}
-   }
+   val progressMutex=Mutex();val uploadSlots=Semaphore(4)
+   local.map{m->async{
+    uploadSlots.withPermit{
+     val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative
+     if(relative in remote){progressMutex.withLock{skipped++;doneBytes+=m.size;progress(SyncProgress(copied+skipped,total,doneBytes,totalBytes,"Übersprungen: "+m.displayName))}}
+     else try{
+      target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)}
+      context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(target)).use{dst->src.copyTo(dst)}}}
+      progressMutex.withLock{copied++;doneBytes+=m.size;progress(SyncProgress(copied+skipped,total,doneBytes,totalBytes,"Hochgeladen: "+m.displayName))}
+     }catch(t:Throwable){progressMutex.withLock{failed++;lastError=t.message?:t.javaClass.simpleName};throw IOException("SMB-Verbindung unterbrochen bei "+m.displayName+": "+(t.message?:t.javaClass.simpleName),t)}
+    }
+   }}.awaitAll()
   }
   if(settings.direction==SyncDirection.NAS_TO_PHONE||settings.direction==SyncDirection.BIDIRECTIONAL){
    val existing=local.map{it.displayName.lowercase()}.toSet();val files=smb.listRecursive(root).filter{it.substringAfterLast('/').lowercase() !in existing};val total=files.size
