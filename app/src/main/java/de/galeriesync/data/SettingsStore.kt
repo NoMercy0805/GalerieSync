@@ -40,6 +40,8 @@ class SettingsStore(context:Context){
  fun removeNasStorage(id:String){val raw=prefs.getString("nas_storage","{}")?:"{}";val o=runCatching{JSONObject(raw)}.getOrDefault(JSONObject());o.remove(id);prefs.edit().putString("nas_storage",o.toString()).apply()}
  fun loadNasStorageUpdated():Map<String,Long>{val raw=prefs.getString("nas_storage_updated","{}")?:"{}";return runCatching{val o=JSONObject(raw);o.keys().asSequence().associateWith{o.optLong(it,0L)}}.getOrDefault(emptyMap())}
  fun saveNasStorageUpdated(id:String,time:Long){val raw=prefs.getString("nas_storage_updated","{}")?:"{}";val o=runCatching{JSONObject(raw)}.getOrDefault(JSONObject());o.put(id,time);prefs.edit().putString("nas_storage_updated",o.toString()).apply()}
+ fun loadProfileLastSync():Map<String,String>{val raw=prefs.getString("profile_last_sync","{}")?:"{}";return runCatching{val o=JSONObject(raw);o.keys().asSequence().associateWith{o.optString(it,"")}}.getOrDefault(emptyMap())}
+ fun saveProfileLastSync(id:String,text:String){val raw=prefs.getString("profile_last_sync","{}")?:"{}";val o=runCatching{JSONObject(raw)}.getOrDefault(JSONObject());o.put(id,text);prefs.edit().putString("profile_last_sync",o.toString()).apply()}
  fun loadSyncHistory():List<String> = (prefs.getString("sync_history","")?:"").lines().filter{it.isNotBlank()}
  fun addSyncHistory(entry:String){val items=(listOf(entry)+loadSyncHistory()).take(100);prefs.edit().putString("sync_history",items.joinToString("\n")).apply()}
  fun loadVpnConfig():String = prefs.getString("wireguard_config","")?:""
