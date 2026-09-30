@@ -58,7 +58,7 @@ class SyncService(private val context:Context){
         val temp=target+".galeriesync-part";smb.delete(temp)
         context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(temp)).use{dst->
          val buffer=ByteArray(256*1024);var lastReported=0L;val throttleStart=System.nanoTime()
-         while(true){val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);attemptBytes+=read;if(speedLimitBytes>0){val expectedMs=attemptBytes*1000L/speedLimitBytes;val elapsedMs=(System.nanoTime()-throttleStart)/1_000_000L;if(expectedMs>elapsedMs)kotlinx.coroutines.delay((expectedMs-elapsedMs).coerceAtMost(1000L))};progressMutex.withLock{processedBytes+=read;val now=System.currentTimeMillis();if(attemptBytes-lastReported>=1024&&now-lastProgressAt>=500){lastReported=attemptBytes;lastProgressAt=now;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName))}}}
+         while(true){val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);attemptBytes+=read;if(speedLimitBytes>0){val expectedMs=attemptBytes*1000L/speedLimitBytes;val elapsedMs=(System.nanoTime()-throttleStart)/1_000_000L;if(expectedMs>elapsedMs)kotlinx.coroutines.delay((expectedMs-elapsedMs).coerceAtMost(1000L))};progressMutex.withLock{processedBytes+=read;val now=System.currentTimeMillis();if(attemptBytes-lastReported>=1024&&now-lastProgressAt>=1000){lastReported=attemptBytes;lastProgressAt=now;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName))}}}
          dst.flush()
         }}}
         if(smb.fileSize(temp)!=m.size)throw IOException("Größenprüfung fehlgeschlagen")
