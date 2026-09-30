@@ -4,6 +4,7 @@ import android.content.Context
 import android.provider.MediaStore
 import de.galeriesync.data.NasSettings
 import de.galeriesync.data.SyncDirection
+import de.galeriesync.data.SettingsStore
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import kotlinx.coroutines.Dispatchers
@@ -22,7 +23,20 @@ class SyncService(private val context:Context){
   require(settings.host.isNotBlank()&&settings.share.isNotBlank()){"NAS-Adresse und Freigabe fehlen."};val smb=SmbProvider(settings);var connected=false;var connectError:Throwable?=null;repeat(5){if(!connected){runCatching{smb.test()}.onSuccess{connected=true}.onFailure{connectError=it};if(!connected)kotlinx.coroutines.delay(1000)}};if(!connected)throw IOException("NAS nach VPN-Aufbau nicht erreichbar: "+(connectError?.message?:"SMB-Verbindung fehlgeschlagen"),connectError);smb.ensureDirectory(settings.remoteFolder)
   val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trimEnd('/')
   var copied=0;var skipped=0;var failed=0;var lastError:String?=null
-  var remote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.toSet()
+  var remote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.filterNot{it.endsWith(".galeriesync-part")}.toSet()
+  val store=SettingsStore(context)
+  if(settings.direction==SyncDirection.BIDIRECTIONAL){
+   val localPaths=local.map{structuredRelativePath(it.relativePath)}.toSet()
+   val previous=store.loadSyncSnapshot(settings.id)
+   if(previous.isNotEmpty()){
+    val deletedOnPhone=previous-localPaths
+    val deletedOnNas=previous-remote
+    deletedOnPhone.intersect(remote).forEach{rel->smb.delete(root+"/"+rel)}
+    remote=remote-deletedOnPhone
+    // Android MediaStore deletion needs explicit user approval on modern Android,
+    // so NAS-side deletions are not silently propagated to the phone.
+   }
+  }
   if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL){
    val localPaths=local.map{structuredRelativePath(it.relativePath)}.toSet()
    if(settings.direction==SyncDirection.PHONE_TO_NAS){val obsolete=remote-localPaths;obsolete.forEach{rel->smb.delete(root+"/"+rel)};remote=remote-obsolete}
@@ -53,6 +67,11 @@ class SyncService(private val context:Context){
    val existing=local.map{structuredRelativePath(it.relativePath).lowercase()}.toSet();val files=smb.listRecursive(root).filter{remotePath->val rel=remotePath.removePrefix(root+"/");!rel.endsWith(".galeriesync-part")&&rel.lowercase() !in existing};val total=files.size
    progress(SyncProgress(0,total,0,0,"Dateien werden abgeglichen …"))
    files.forEach{p->try{downloadToMediaStore(smb,p,root);copied++;progress(SyncProgress(copied,total,0,0,"Heruntergeladen: "+p.substringAfterLast('/')))}catch(t:Throwable){failed++;lastError=t.message?:t.javaClass.simpleName;throw IOException("SMB-Verbindung unterbrochen bei "+p.substringAfterLast('/')+": "+lastError,t)}}
+  }
+  if(settings.direction==SyncDirection.BIDIRECTIONAL&&failed==0){
+   val afterLocal=MediaScanner(context.contentResolver).scan(settings.sourceFolders).map{structuredRelativePath(it.relativePath)}.toSet()
+   val afterRemote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.filterNot{it.endsWith(".galeriesync-part")}.toSet()
+   store.saveSyncSnapshot(settings.id,afterLocal.intersect(afterRemote))
   }
   SyncResult(copied,skipped,failed,"SMB",lastError)
  }
