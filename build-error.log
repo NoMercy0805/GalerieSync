@@ -18,13 +18,12 @@ Starting a Gradle Daemon (subsequent builds will be faster)
 > Task :app:mapDebugSourceSetPaths
 > Task :app:generateDebugResources
 > Task :app:packageDebugResources
-> Task :app:mergeDebugResources
 > Task :app:createDebugCompatibleScreenManifests
 > Task :app:extractDeepLinksDebug
+> Task :app:mergeDebugResources
 > Task :app:parseDebugLocalResources
 > Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
-> Task :app:processDebugManifestForPackage
 > Task :app:javaPreCompileDebug
 > Task :app:mergeDebugShaders
 > Task :app:compileDebugShaders NO-SOURCE
@@ -32,33 +31,26 @@ Starting a Gradle Daemon (subsequent builds will be faster)
 > Task :app:mergeDebugAssets
 > Task :app:compressDebugAssets
 > Task :app:desugarDebugFileDependencies
-> Task :app:processDebugResources
+> Task :app:processDebugManifestForPackage
 > Task :app:checkDebugDuplicateClasses
+> Task :app:processDebugResources
+> Task :app:l8DexDesugarLibDebug
+> Task :app:mergeExtDexDebug
+> Task :app:mergeDebugJniLibFolders
+> Task :app:mergeLibDexDebug
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:mergeDebugNativeLibs
+> Task :app:writeDebugSigningConfigVersions
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so, libwg-go.so, libwg-quick.so, libwg.so.
 
 > Task :app:compileDebugKotlin FAILED
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:103:930 Unresolved reference 'ugreenlinkId'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:122:285 Unresolved reference 'webdavUrl'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/WebDavProvider.kt:14:28 Unresolved reference 'webdavUrl'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/WebDavProvider.kt:15:76 Unresolved reference 'webdavUsername'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/WebDavProvider.kt:15:91 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/WebDavProvider.kt:15:118 Overload resolution ambiguity between candidates:
-fun String?.plus(other: Any?): String
-fun <T> Array<T>.plus(element: T): Array<T>
-fun <T> Iterable<T>.plus(element: T): List<T>
-fun <T> Collection<T>.plus(element: T): List<T>
-fun <T> Set<T>.plus(element: T): Set<T>
-fun <T> Sequence<T>.plus(element: T): Sequence<T>
-fun Char.plus(other: String): String
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/WebDavProvider.kt:15:133 Unresolved reference 'webdavPassword'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/WebDavProvider.kt:15:148 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/WebDavProvider.kt:15:177 Overload resolution ambiguity between candidates:
-fun Array<out Byte>.toByteArray(): ByteArray
-fun Collection<Byte>.toByteArray(): ByteArray
-fun UByteArray.toByteArray(): ByteArray
-fun String.toByteArray(charset: Charset = ...): ByteArray
-
-> Task :app:mergeExtDexDebug
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790756307670.json
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/SmbProvider.kt:23:111 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/SmbProvider.kt:23:122 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/sync/SmbProvider.kt:23:125 Unresolved reference 'totalSpace'.
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790764987208.json
 
 FAILURE: Build failed with an exception.
 
@@ -262,5 +254,5 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	... 2 more
 
 
-BUILD FAILED in 2m 3s
-21 actionable tasks: 21 executed
+BUILD FAILED in 2m 9s
+29 actionable tasks: 29 executed
