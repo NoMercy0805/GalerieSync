@@ -22,6 +22,8 @@ class SettingsStore(context:Context){
  fun saveProfiles(v:List<NasSettings>)=saveList("sync_profiles",v)
  fun loadTrustedWifi():Set<String> = prefs.getStringSet("trusted_wifi",emptySet())?:emptySet()
  fun saveTrustedWifi(v:Set<String>)=prefs.edit().putStringSet("trusted_wifi",v).apply()
+ fun loadThemeMode():String = prefs.getString("theme_mode","SYSTEM")?:"SYSTEM"
+ fun saveThemeMode(v:String)=prefs.edit().putString("theme_mode",v).apply()
  fun loadVpnConfig():String = prefs.getString("wireguard_config","")?:""
  fun saveVpnConfig(v:String)=prefs.edit().putString("wireguard_config",v).apply()
  fun load()=NasSettings(host=prefs.getString("host","")?:"",share=prefs.getString("share","")?:"",username=prefs.getString("username","")?:"",password=prefs.getString("password","")?:"",domain=prefs.getString("domain","")?:"",remoteFolder=prefs.getString("folder","GalerieSync")?:"GalerieSync",wifiOnly=prefs.getBoolean("wifiOnly",true),direction=runCatching{SyncDirection.valueOf(prefs.getString("direction",SyncDirection.PHONE_TO_NAS.name)!!)}.getOrDefault(SyncDirection.PHONE_TO_NAS),sourceFolders=prefs.getStringSet("sourceFolders",emptySet())?:emptySet())
