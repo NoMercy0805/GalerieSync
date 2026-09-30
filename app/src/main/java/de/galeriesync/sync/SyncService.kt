@@ -15,8 +15,12 @@ class SyncService(private val context:Context){
   require(settings.host.isNotBlank()&&settings.share.isNotBlank()){"NAS-Adresse und Freigabe fehlen."};val smb=SmbProvider(settings);var connected=false;var connectError:Throwable?=null;repeat(5){if(!connected){runCatching{smb.test()}.onSuccess{connected=true}.onFailure{connectError=it};if(!connected)kotlinx.coroutines.delay(1000)}};if(!connected)throw IOException("NAS nach VPN-Aufbau nicht erreichbar: "+(connectError?.message?:"SMB-Verbindung fehlgeschlagen"),connectError);smb.ensureDirectory(settings.remoteFolder)
   val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trimEnd('/')
   var copied=0;var skipped=0;var failed=0;var lastError:String?=null
-  val remote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.toSet()
+  var remote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.toSet()
   if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL){
+   val localPaths=local.map{structuredRelativePath(it.relativePath)}.toSet()
+   val obsolete=remote-localPaths
+   obsolete.forEach{rel->smb.delete(root+"/"+rel)}
+   remote=remote-obsolete
    val total=local.size
    local.forEach{m->
     val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative
