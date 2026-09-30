@@ -48,6 +48,7 @@ class SyncService(private val context:Context){
     uploadSlots.withPermit{
      val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative
      if(relative in remote&&smb.fileSize(target)==m.size){progressMutex.withLock{skipped++;processedBytes+=m.size;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Übersprungen: "+m.displayName))}}
+     else if(settings.direction==SyncDirection.BIDIRECTIONAL&&relative in remote&&smb.fileSize(target)!=m.size&&smb.lastModified(target)>m.modified+2000L){progressMutex.withLock{skipped++;processedBytes+=m.size;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Konflikt: NAS-Version ist neuer · "+m.displayName))}}
      else try{
       target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)}
       val temp=target+".galeriesync-part";smb.delete(temp)
