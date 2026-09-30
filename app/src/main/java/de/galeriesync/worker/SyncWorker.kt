@@ -30,7 +30,7 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
      SyncService(applicationContext).run(p){sp:SyncProgress->
       val percent=if(sp.totalBytes>0)((sp.doneBytes*100/sp.totalBytes).toInt()) else if(sp.totalFiles>0)(sp.doneFiles*100/sp.totalFiles) else 0
       val text=if(sp.totalFiles>0)"${sp.doneFiles} von ${sp.totalFiles} Dateien · ${formatBytes(sp.doneBytes)} / ${formatBytes(sp.totalBytes)}" else sp.message
-      setForeground(foreground(text,percent));if(showNotifications){ensureChannel();nm.notify(4101,notification("GalerieSync synchronisiert","$percent % · $text",percent))}
+      nm.notify(4101,notification("GalerieSync synchronisiert","$percent % · $text",percent))
      }
     }
    }finally{if(startedVpn)VpnManager.disconnect()}
