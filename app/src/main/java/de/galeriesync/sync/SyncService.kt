@@ -22,6 +22,7 @@ class SyncService(private val context:Context){
    obsolete.forEach{rel->smb.delete(root+"/"+rel)}
    remote=remote-obsolete
    val total=local.size
+   progress(0,total,"Dateien werden abgeglichen …")
    local.forEach{m->
     val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative
     if(relative in remote){skipped++;progress(copied+skipped,total,"Übersprungen: "+m.displayName)}
@@ -34,6 +35,7 @@ class SyncService(private val context:Context){
   }
   if(settings.direction==SyncDirection.NAS_TO_PHONE||settings.direction==SyncDirection.BIDIRECTIONAL){
    val existing=local.map{it.displayName.lowercase()}.toSet();val files=smb.listRecursive(root).filter{it.substringAfterLast('/').lowercase() !in existing};val total=files.size
+   progress(0,total,"Dateien werden abgeglichen …")
    files.forEach{p->try{downloadToMediaStore(smb,p,root);copied++;progress(copied,total,"Heruntergeladen: "+p.substringAfterLast('/'))}catch(t:Throwable){failed++;lastError=t.message?:t.javaClass.simpleName;throw IOException("SMB-Verbindung unterbrochen bei "+p.substringAfterLast('/')+": "+lastError,t)}}
   }
   SyncResult(copied,skipped,failed,"SMB",lastError)
