@@ -8,13 +8,33 @@ import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.IOException
 data class SyncResult(val copied:Int,val skipped:Int,val failed:Int,val transport:String="SMB",val lastError:String?=null)
 class SyncService(private val context:Context){
  suspend fun run(settings:NasSettings,progress:(Int,Int,String)->Unit={_,_,_->}):SyncResult=withContext(Dispatchers.IO){
-  require(settings.host.isNotBlank()&&settings.share.isNotBlank()){"NAS-Adresse und Freigabe fehlen."};val smb=SmbProvider(settings);smb.test();smb.ensureDirectory(settings.remoteFolder);val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trimEnd('/');var copied=0;var skipped=0;var failed=0;var lastError:String?=null;val remote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.toSet()
-  if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL){local.forEachIndexed{i,m->progress(i+1,local.size,"Upload: "+m.displayName);val target=root+"/"+structuredRelativePath(m.relativePath);if(m.relativePath in remote)skipped++ else runCatching{target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)};context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(target)).use{dst->src.copyTo(dst)}}};copied++}.onFailure{failed++;lastError=it.message?:it.javaClass.simpleName}}}
-  if(settings.direction==SyncDirection.NAS_TO_PHONE||settings.direction==SyncDirection.BIDIRECTIONAL){val existing=local.map{it.displayName.lowercase()}.toSet();val files=smb.listRecursive(root).filter{it.substringAfterLast('/').lowercase() !in existing};files.forEachIndexed{i,p->progress(i+1,files.size,"Download: "+p.substringAfterLast('/'));runCatching{downloadToMediaStore(smb,p,root);copied++}.onFailure{failed++;lastError=it.message?:it.javaClass.simpleName}}}
-  SyncResult(copied,skipped,failed,"SMB",lastError)}
+  require(settings.host.isNotBlank()&&settings.share.isNotBlank()){"NAS-Adresse und Freigabe fehlen."}
+  val smb=SmbProvider(settings);smb.test();smb.ensureDirectory(settings.remoteFolder)
+  val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trimEnd('/')
+  var copied=0;var skipped=0;var failed=0;var lastError:String?=null
+  val remote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.toSet()
+  if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL){
+   val total=local.size
+   local.forEach{m->
+    val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative
+    if(relative in remote){skipped++;progress(copied+skipped,total,"Übersprungen: "+m.displayName)}
+    else try{
+     smb.test();target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)}
+     context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(target)).use{dst->src.copyTo(dst)}}}
+     copied++;progress(copied+skipped,total,"Hochgeladen: "+m.displayName)
+    }catch(t:Throwable){failed++;lastError=t.message?:t.javaClass.simpleName;throw IOException("SMB-Verbindung unterbrochen bei "+m.displayName+": "+lastError,t)}
+   }
+  }
+  if(settings.direction==SyncDirection.NAS_TO_PHONE||settings.direction==SyncDirection.BIDIRECTIONAL){
+   val existing=local.map{it.displayName.lowercase()}.toSet();val files=smb.listRecursive(root).filter{it.substringAfterLast('/').lowercase() !in existing};val total=files.size
+   files.forEach{p->try{smb.test();downloadToMediaStore(smb,p,root);copied++;progress(copied,total,"Heruntergeladen: "+p.substringAfterLast('/'))}catch(t:Throwable){failed++;lastError=t.message?:t.javaClass.simpleName;throw IOException("SMB-Verbindung unterbrochen bei "+p.substringAfterLast('/')+": "+lastError,t)}}
+  }
+  SyncResult(copied,skipped,failed,"SMB",lastError)
+ }
  private fun structuredRelativePath(relativePath:String):String{
   val clean=relativePath.trimStart('/')
   val parts=clean.split('/').filter{it.isNotBlank()}
