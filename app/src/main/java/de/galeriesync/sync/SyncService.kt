@@ -26,7 +26,7 @@ class SyncService(private val context:Context){
     val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative
     if(relative in remote){skipped++;progress(copied+skipped,total,"Übersprungen: "+m.displayName)}
     else try{
-     smb.test();target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)}
+     target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)}
      context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(target)).use{dst->src.copyTo(dst)}}}
      copied++;progress(copied+skipped,total,"Hochgeladen: "+m.displayName)
     }catch(t:Throwable){failed++;lastError=t.message?:t.javaClass.simpleName;throw IOException("SMB-Verbindung unterbrochen bei "+m.displayName+": "+lastError,t)}
@@ -34,7 +34,7 @@ class SyncService(private val context:Context){
   }
   if(settings.direction==SyncDirection.NAS_TO_PHONE||settings.direction==SyncDirection.BIDIRECTIONAL){
    val existing=local.map{it.displayName.lowercase()}.toSet();val files=smb.listRecursive(root).filter{it.substringAfterLast('/').lowercase() !in existing};val total=files.size
-   files.forEach{p->try{smb.test();downloadToMediaStore(smb,p,root);copied++;progress(copied,total,"Heruntergeladen: "+p.substringAfterLast('/'))}catch(t:Throwable){failed++;lastError=t.message?:t.javaClass.simpleName;throw IOException("SMB-Verbindung unterbrochen bei "+p.substringAfterLast('/')+": "+lastError,t)}}
+   files.forEach{p->try{downloadToMediaStore(smb,p,root);copied++;progress(copied,total,"Heruntergeladen: "+p.substringAfterLast('/'))}catch(t:Throwable){failed++;lastError=t.message?:t.javaClass.simpleName;throw IOException("SMB-Verbindung unterbrochen bei "+p.substringAfterLast('/')+": "+lastError,t)}}
   }
   SyncResult(copied,skipped,failed,"SMB",lastError)
  }
