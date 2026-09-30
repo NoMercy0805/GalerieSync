@@ -29,6 +29,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.work.*
 import coil.compose.AsyncImage
 import de.galeriesync.data.*
@@ -49,7 +50,7 @@ private fun currentWifiName(context:android.content.Context):String?{val wm=cont
 private val Navy=Color(0xFF071A27);private val Panel=Color(0xFF102A3A);private val Panel2=Color(0xFF17384B)
 private val Blue=Color(0xFF3DA5FF);private val Green=Color(0xFF42D77D);private val Muted=Color(0xFF9CB1BF)
 private val Scheme=darkColorScheme(primary=Blue,onPrimary=Color.White,background=Navy,surface=Panel,surfaceVariant=Panel2,onBackground=Color.White,onSurface=Color.White,onSurfaceVariant=Color.White,outline=Color(0xFF345568))
-class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);setContent{MaterialTheme(colorScheme=Scheme){App()}}}}
+class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);window.statusBarColor=android.graphics.Color.rgb(7,26,39);window.navigationBarColor=android.graphics.Color.rgb(9,31,45);WindowCompat.getInsetsController(window,window.decorView).apply{isAppearanceLightStatusBars=false;isAppearanceLightNavigationBars=false};setContent{MaterialTheme(colorScheme=Scheme){App()}}}}
 enum class Tab(val label:String,val icon:String){HOME("Übersicht","⌂"),SYNC("Synchronisation","↻"),NAS("NAS","▣"),SETTINGS("Einstellungen","⚙")}
 enum class Editor{NONE,NAS,SYNC}
 
