@@ -33,6 +33,8 @@ class SettingsStore(context:Context){
  fun loadAutoSyncValue():Int = prefs.getInt("auto_sync_value",15)
  fun loadAutoSyncUnit():String = prefs.getString("auto_sync_unit","MINUTES")?:"MINUTES"
  fun saveAutoSyncSchedule(value:Int,unit:String)=prefs.edit().putInt("auto_sync_value",value).putString("auto_sync_unit",unit).apply()
+ fun loadSpeedLimitKbps():Long = prefs.getLong("speed_limit_kbps",0L)
+ fun saveSpeedLimitKbps(v:Long)=prefs.edit().putLong("speed_limit_kbps",v.coerceAtLeast(0L)).apply()
  fun loadNotificationsEnabled():Boolean = prefs.getBoolean("sync_notifications",false)
  fun saveNotificationsEnabled(v:Boolean)=prefs.edit().putBoolean("sync_notifications",v).apply()
  fun loadNasStorage():Map<String,Pair<Long,Long>>{val raw=prefs.getString("nas_storage","{}")?:"{}";return runCatching{val o=JSONObject(raw);o.keys().asSequence().associateWith{k->val v=o.getJSONObject(k);v.optLong("total",0L) to v.optLong("free",0L)}}.getOrDefault(emptyMap())}
