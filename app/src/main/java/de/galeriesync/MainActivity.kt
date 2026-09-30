@@ -169,7 +169,7 @@ enum class Editor{NONE,NAS,SYNC}
     TextButton(onClick={p=p.copy(sourceFolders=if(allSelected)emptySet() else folders.map{it.path}.toSet())},enabled=folders.isNotEmpty(),modifier=Modifier.fillMaxWidth()){
      Text(if(allSelected)"Auswahl aufheben" else "Alle Ordner auswählen",color=Blue,fontWeight=FontWeight.SemiBold)
     }
-    folders.forEach{f->
+    folders.sortedWith(compareBy<MediaFolder>({folderGroupOrder(it.path)},{folderRelativeSortKey(it.path).lowercase(java.util.Locale.GERMANY)})).forEach{f->
      val active=f.path in p.sourceFolders
      Card(Modifier.fillMaxWidth().clickable{p=p.copy(sourceFolders=if(active)p.sourceFolders-f.path else p.sourceFolders+f.path)},shape=RoundedCornerShape(16.dp),colors=CardDefaults.cardColors(containerColor=if(active)Color(0xFF17466A) else Panel)){
       Column(Modifier.padding(12.dp)){
@@ -234,3 +234,6 @@ private fun syncProfileTitle(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS
 fun schedule(context:android.content.Context){val c=Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build();val r=PeriodicWorkRequestBuilder<SyncWorker>(15,TimeUnit.MINUTES).setConstraints(c).build();WorkManager.getInstance(context).enqueueUniquePeriodicWork("GalerieSync",ExistingPeriodicWorkPolicy.UPDATE,r)}
 
 private fun formatBytes(v:Long):String{val tb=v/1_099_511_627_776.0;return if(tb>=1)"%.2f TB".format(java.util.Locale.GERMANY,tb) else "%.1f GB".format(java.util.Locale.GERMANY,v/1_073_741_824.0)}
+
+private fun folderGroupOrder(path:String):Int{val top=path.trim('/').substringBefore('/').lowercase();return when(top){"dcim"->0;"pictures"->1;"movies"->2 else->3}}
+private fun folderRelativeSortKey(path:String):String{val clean=path.trim('/');val parts=clean.split('/').filter{it.isNotBlank()};return if(parts.firstOrNull()?.lowercase() in setOf("dcim","pictures","movies"))parts.drop(1).joinToString("/") else clean}
