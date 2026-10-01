@@ -14,3 +14,4 @@ Build reordered sync progress UI
 Build hybrid reliable NAS matching
 Build reliable sequential NAS scan with progress
 Build restore running sync UI after app restart
+Build configurable concurrent uploads 1-6
