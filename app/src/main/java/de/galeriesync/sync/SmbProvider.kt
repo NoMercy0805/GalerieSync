@@ -26,6 +26,7 @@ class SmbProvider(private val settings:NasSettings){
  fun delete(path:String){val f=SmbFile(url(path),context);if(f.exists())f.delete()}
  fun fileSize(path:String):Long{val f=SmbFile(url(path),context);return if(f.exists())f.length() else -1L}
  fun lastModified(path:String):Long{val f=SmbFile(url(path),context);return if(f.exists())f.lastModified() else 0L}
+ fun readBytes(path:String,maxBytes:Int=20*1024*1024):ByteArray{val f=SmbFile(url(path),context);require(f.length()<=maxBytes){"Datei zu groß für Vorschau"};return f.inputStream.use{it.readBytes()}}
  fun move(from:String,to:String){val src=SmbFile(url(from),context);val dst=SmbFile(url(to),context);if(dst.exists())dst.delete();src.renameTo(dst)}
  fun openInput(path:String):InputStream=SmbFile(url(path),context).inputStream
  fun openOutput(path:String):OutputStream=SmbFile(url(path),context).outputStream
