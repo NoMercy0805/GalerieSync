@@ -1,3 +1,4 @@
 build-remote-index-progress-147
 Build sync-skip-existing fix
 Build incremental phone-to-NAS sync
+Build performance fix for pending comparison
