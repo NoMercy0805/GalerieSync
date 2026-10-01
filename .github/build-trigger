@@ -4,3 +4,4 @@ Build incremental phone-to-NAS sync
 Build performance fix for pending comparison
 Build detailed sync progress UI
 Build rebuilt reliable sync engine
+Build NAS root normalization fix
