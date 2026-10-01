@@ -23,7 +23,7 @@ class SyncService(private val context:Context){
   require(settings.host.isNotBlank()&&settings.share.isNotBlank()){"NAS-Adresse und Freigabe fehlen."};val smb=SmbProvider(settings);var connected=false;var connectError:Throwable?=null;repeat(5){if(!connected){runCatching{smb.test()}.onSuccess{connected=true}.onFailure{connectError=it};if(!connected)kotlinx.coroutines.delay(1000)}};if(!connected)throw IOException("NAS nach VPN-Aufbau nicht erreichbar: "+(connectError?.message?:"SMB-Verbindung fehlgeschlagen"),connectError);smb.ensureDirectory(settings.remoteFolder)
   progress(SyncProgress(0,0,0,0,"Dateien werden geprüft …"))
   val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trimEnd('/');val speedLimitBytes=SettingsStore(context).loadSpeedLimitKbps()*1024L
-  var copied=0;var skipped=0;var failed=0;var lastError:String?=null
+  var copied=0;var skipped=0;var alreadyCurrent=0;var failed=0;var lastError:String?=null
   var remote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.filterNot{it.endsWith(".galeriesync-part")}.toSet()
   progress(SyncProgress(0,0,0,0,"Abgleich abgeschlossen · Änderungen werden vorbereitet …"))
   val store=SettingsStore(context)
@@ -43,7 +43,7 @@ class SyncService(private val context:Context){
    val localPaths=local.map{structuredRelativePath(it.relativePath)}.toSet()
    if(settings.direction==SyncDirection.PHONE_TO_NAS){val obsolete=remote-localPaths;obsolete.forEach{rel->smb.delete(root+"/"+rel)};remote=remote-obsolete}
    val pending=local.filter{m->val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative;relative !in remote||smb.fileSize(target)!=m.size}
-   val alreadyCurrent=local.size-pending.size
+   alreadyCurrent=local.size-pending.size
    val total=pending.size
    val totalBytes=pending.sumOf{it.size};var processedBytes=0L
    progress(SyncProgress(0,total,0,totalBytes,if(total==0)"Alles aktuell" else "$total Dateien werden synchronisiert …"))
@@ -51,8 +51,7 @@ class SyncService(private val context:Context){
    pending.map{m->async{
     uploadSlots.withPermit{
      val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative
-     if(false){ }
-     else if(settings.direction==SyncDirection.BIDIRECTIONAL&&relative in remote&&smb.fileSize(target)!=m.size&&smb.lastModified(target)>m.modified+2000L){progressMutex.withLock{skipped++;processedBytes+=m.size;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Konflikt: NAS-Version ist neuer · "+m.displayName))}}
+     if(settings.direction==SyncDirection.BIDIRECTIONAL&&relative in remote&&smb.fileSize(target)!=m.size&&smb.lastModified(target)>m.modified+2000L){progressMutex.withLock{skipped++;processedBytes+=m.size;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Konflikt: NAS-Version ist neuer · "+m.displayName))}}
      else try{
       var uploaded=false;var attempt=0;var uploadError:Throwable?=null
       while(!uploaded&&attempt<3){attempt++;var attemptBytes=0L
