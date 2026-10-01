@@ -24,7 +24,9 @@ class SyncService(private val context:Context){
   progress(SyncProgress(0,0,0,0,"Dateien werden geprüft …"))
   val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trimEnd('/');val speedLimitBytes=SettingsStore(context).loadSpeedLimitKbps()*1024L
   var copied=0;var skipped=0;var alreadyCurrent=0;var failed=0;var lastError:String?=null
-  var remote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.filterNot{it.endsWith(".galeriesync-part")}.toSet()
+  val remoteInfo=smb.listRecursiveInfo(root).map{info->SmbProvider.RemoteFileInfo(info.path.removePrefix(root+"/").trimStart('/'),info.size)}.filterNot{it.path.endsWith(".galeriesync-part")}
+  var remote=remoteInfo.map{it.path}.toSet()
+  var remoteByKey=remoteInfo.associateBy{canonicalPath(it.path)}
   progress(SyncProgress(0,0,0,0,"Abgleich abgeschlossen · Änderungen werden vorbereitet …"))
   val store=SettingsStore(context)
   if(settings.direction==SyncDirection.BIDIRECTIONAL){
@@ -41,27 +43,28 @@ class SyncService(private val context:Context){
   }
   if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL){
    val localPaths=local.map{structuredRelativePath(it.relativePath)}.toSet()
-   if(settings.direction==SyncDirection.PHONE_TO_NAS){val obsolete=remote-localPaths;obsolete.forEach{rel->smb.delete(root+"/"+rel)};remote=remote-obsolete}
-   val pending=local.filter{m->val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative;relative !in remote||smb.fileSize(target)!=m.size}
+   val localKeys=localPaths.map{canonicalPath(it)}.toSet()
+   if(settings.direction==SyncDirection.PHONE_TO_NAS){val obsolete=remoteInfo.filter{canonicalPath(it.path) !in localKeys};obsolete.forEach{info->smb.delete(root+"/"+info.path)};val obsoleteKeys=obsolete.map{canonicalPath(it.path)}.toSet();remote=remote.filter{canonicalPath(it) !in obsoleteKeys}.toSet();remoteByKey=remoteByKey.filterKeys{it !in obsoleteKeys}}
+   val pending=local.filter{m->val relative=structuredRelativePath(m.relativePath);val existing=remoteByKey[canonicalPath(relative)];existing==null||existing.size!=m.size}
    alreadyCurrent=local.size-pending.size
-   val total=pending.size
-   val totalBytes=pending.sumOf{it.size};var processedBytes=0L
-   progress(SyncProgress(0,total,0,totalBytes,if(total==0)"Alles aktuell" else "$total Dateien werden synchronisiert …"))
+   val total=local.size
+   val totalBytes=local.sumOf{it.size};var processedBytes=local.filterNot{it in pending}.sumOf{it.size}
+   progress(SyncProgress(alreadyCurrent,total,processedBytes,totalBytes,if(pending.isEmpty())"Alles aktuell" else "$alreadyCurrent von $total bereits vorhanden · ${pending.size} ausstehend"))
    val progressMutex=Mutex();val uploadSlots=Semaphore(2);var lastProgressAt=0L
    pending.map{m->async{
     uploadSlots.withPermit{
      val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative
-     if(settings.direction==SyncDirection.BIDIRECTIONAL&&relative in remote&&smb.fileSize(target)!=m.size&&smb.lastModified(target)>m.modified+2000L){progressMutex.withLock{skipped++;processedBytes+=m.size;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Konflikt: NAS-Version ist neuer · "+m.displayName))}}
+     if(settings.direction==SyncDirection.BIDIRECTIONAL&&relative in remote&&smb.fileSize(target)!=m.size&&smb.lastModified(target)>m.modified+2000L){progressMutex.withLock{skipped++;processedBytes+=m.size;progress(SyncProgress(alreadyCurrent+copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Konflikt: NAS-Version ist neuer · "+m.displayName))}}
      else try{
       var uploaded=false;var attempt=0;var uploadError:Throwable?=null
       while(!uploaded&&attempt<3){attempt++;var attemptBytes=0L
        try{
-        if(attempt>1){progressMutex.withLock{progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Verbindung wird wiederhergestellt · Versuch $attempt/3 · "+m.displayName))};kotlinx.coroutines.delay(1000L*attempt);smb.test()}
+        if(attempt>1){progressMutex.withLock{progress(SyncProgress(alreadyCurrent+copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Verbindung wird wiederhergestellt · Versuch $attempt/3 · "+m.displayName))};kotlinx.coroutines.delay(1000L*attempt);smb.test()}
         target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)}
         val temp=target+".galeriesync-part";smb.delete(temp)
         context.contentResolver.openInputStream(m.uri)!!.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(temp)).use{dst->
          val buffer=ByteArray(256*1024);var lastReported=0L;val throttleStart=System.nanoTime()
-         while(true){val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);attemptBytes+=read;if(speedLimitBytes>0){val expectedMs=attemptBytes*1000L/speedLimitBytes;val elapsedMs=(System.nanoTime()-throttleStart)/1_000_000L;if(expectedMs>elapsedMs)kotlinx.coroutines.delay((expectedMs-elapsedMs).coerceAtMost(1000L))};progressMutex.withLock{processedBytes+=read;val now=System.currentTimeMillis();if(attemptBytes-lastReported>=1024&&now-lastProgressAt>=1000){lastReported=attemptBytes;lastProgressAt=now;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName))}}}
+         while(true){val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);attemptBytes+=read;if(speedLimitBytes>0){val expectedMs=attemptBytes*1000L/speedLimitBytes;val elapsedMs=(System.nanoTime()-throttleStart)/1_000_000L;if(expectedMs>elapsedMs)kotlinx.coroutines.delay((expectedMs-elapsedMs).coerceAtMost(1000L))};progressMutex.withLock{processedBytes+=read;val now=System.currentTimeMillis();if(attemptBytes-lastReported>=1024&&now-lastProgressAt>=1000){lastReported=attemptBytes;lastProgressAt=now;progress(SyncProgress(alreadyCurrent+copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName))}}}
          dst.flush()
         }}}
         if(smb.fileSize(temp)!=m.size)throw IOException("Größenprüfung fehlgeschlagen")
@@ -69,7 +72,7 @@ class SyncService(private val context:Context){
        }catch(t:Throwable){uploadError=t;progressMutex.withLock{processedBytes=(processedBytes-attemptBytes).coerceAtLeast(0)};runCatching{smb.delete(target+".galeriesync-part")}}
       }
       if(!uploaded)throw IOException("Verbindung zur NAS während der Übertragung verloren.",uploadError)
-      progressMutex.withLock{copied++;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Hochgeladen: "+m.displayName))}
+      progressMutex.withLock{copied++;progress(SyncProgress(alreadyCurrent+copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Hochgeladen: "+m.displayName))}
      }catch(t:Throwable){progressMutex.withLock{failed++;lastError="Datei: "+m.displayName+" · "+(t.message?:"SMB-Verbindung unterbrochen")};throw IOException("Synchronisation unterbrochen · Datei: "+m.displayName+" · Verbindung zur NAS während der Übertragung verloren.",t)}
     }
    }}.awaitAll()
@@ -86,6 +89,7 @@ class SyncService(private val context:Context){
   }
   SyncResult(copied,skipped+if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL) alreadyCurrent else 0,failed,"SMB",lastError)
  }
+ private fun canonicalPath(path:String)=path.replace('\\','/').trim('/').lowercase(java.util.Locale.ROOT)
  private fun structuredRelativePath(relativePath:String):String{
   // Keep Android's MediaStore path exactly below the configured NAS target.
   // Example: DCIM/Camera/IMG.jpg -> <remoteFolder>/DCIM/Camera/IMG.jpg
