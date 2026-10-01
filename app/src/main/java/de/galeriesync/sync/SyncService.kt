@@ -44,7 +44,6 @@ class SyncService(private val context:Context){
   if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL){
    val localPaths=local.map{structuredRelativePath(it.relativePath)}.toSet()
    val localKeys=localPaths.map{canonicalPath(it)}.toSet()
-   if(settings.direction==SyncDirection.PHONE_TO_NAS){val obsolete=remoteInfo.filter{canonicalPath(it.path) !in localKeys};obsolete.forEach{info->smb.delete(root+"/"+info.path)};val obsoleteKeys=obsolete.map{canonicalPath(it.path)}.toSet();remote=remote.filter{canonicalPath(it) !in obsoleteKeys}.toSet();remoteByKey=remoteByKey.filterKeys{it !in obsoleteKeys}}
    val pending=local.filter{m->val relative=structuredRelativePath(m.relativePath);val existing=remoteByKey[canonicalPath(relative)];existing==null||existing.size!=m.size}
    alreadyCurrent=local.size-pending.size
    val total=local.size
