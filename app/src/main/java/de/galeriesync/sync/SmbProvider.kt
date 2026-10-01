@@ -29,9 +29,7 @@ class SmbProvider(private val settings:NasSettings){
  fun fileSize(path:String):Long{val f=SmbFile(url(path),context);return if(f.exists())f.length() else -1L}
  fun lastModified(path:String):Long{val f=SmbFile(url(path),context);return if(f.exists())f.lastModified() else 0L}
  data class RemoteMediaEntry(val path:String,val modified:Long)
- fun listMedia(path:String=""):List<RemoteMediaEntry>{val out=mutableListOf<RemoteMediaEntry>();val clean=path.trim('/');val root=SmbFile(url(clean),context);if(!root.exists())return out
-  fun children(dir:SmbFile):Array<SmbFile>{repeat(2){try{return dir.listFiles()}catch(e:jcifs.smb.SmbException){if(!e.message.orEmpty().contains("cannot find the file",true))throw e;Thread.sleep(150)}};return emptyArray()}
-  fun walk(dir:SmbFile,relative:String){children(dir).forEach{f->try{val name=f.name.trimEnd('/');val rel=if(relative.isBlank())name else "$relative/$name";if(f.isDirectory)walk(f,rel) else out+=RemoteMediaEntry((if(clean.isBlank())"" else "$clean/")+rel,runCatching{f.lastModified()}.getOrDefault(0L))}catch(e:jcifs.smb.SmbException){if(!e.message.orEmpty().contains("cannot find the file",true))throw e}}};walk(root,"");return out}
+ fun listMedia(path:String=""):List<RemoteMediaEntry>{return listRecursive(path).map{RemoteMediaEntry(it,0L)}}
  fun readBytes(path:String,maxBytes:Int=20*1024*1024):ByteArray{val f=SmbFile(url(path),context);require(f.length()<=maxBytes){"Datei zu groß für Vorschau"};return f.inputStream.use{it.readBytes()}}
  fun move(from:String,to:String){val src=SmbFile(url(from),context);val dst=SmbFile(url(to),context);if(dst.exists())dst.delete();src.renameTo(dst)}
  fun openInput(path:String):InputStream=SmbFile(url(path),context).inputStream
