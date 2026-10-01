@@ -60,7 +60,9 @@ class SyncService(private val context:Context){
     if(index==0||(index+1)%25==0||index+1==local.size){
      val checked=index+1
      val found=plan.count{it.third!=null}
-     progress(SyncProgress(checked,local.size,0,0,"Vorhandene Dateien werden geprüft · $checked / ${local.size} · $found gefunden"))
+     val matching=plan.count{(media,_,remoteFile)->remoteFile!=null&&remoteFile.size==media.size}
+     val needsUpload=checked-matching
+     progress(SyncProgress(checked,local.size,0,0,"Vorhandene Dateien werden geprüft · $checked / ${local.size} · $matching bereits vorhanden",matching,needsUpload,0))
     }
    }
    val currentByKey=plan.associateBy{canonicalPath(it.second)}
