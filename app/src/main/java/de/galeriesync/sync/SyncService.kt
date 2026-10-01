@@ -27,7 +27,7 @@ class SyncService(private val context:Context){
   progress(SyncProgress(0,0,0,0,"Dateien werden geprüft …"))
   val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trim('/');val speedLimitBytes=SettingsStore(context).loadSpeedLimitKbps()*1024L
   var copied=0;var skipped=0;var alreadyCurrent=0;var failed=0;var lastError:String?=null
-  val remoteInfo=smb.listRecursiveInfo(root).map{info->SmbProvider.RemoteFileInfo(info.path.removePrefix(root+"/").trimStart('/'),info.size)}.filterNot{it.path.endsWith(".galeriesync-part")}
+  val remoteInfo=smb.listRecursiveInfo(root).filterNot{it.path.endsWith(".galeriesync-part")}
   var remote=remoteInfo.map{it.path}.toSet()
   var remoteByKey=remoteInfo.associateBy{canonicalPath(it.path)}
   progress(SyncProgress(0,0,0,0,"Abgleich abgeschlossen · Änderungen werden vorbereitet …"))
@@ -50,8 +50,10 @@ class SyncService(private val context:Context){
    val previousIndex=store.loadSyncIndex(settings.id)
    val plan=local.map{m->val relative=structuredRelativePath(m.relativePath);Triple(m,relative,remoteByKey[canonicalPath(relative)])}
    val currentByKey=plan.associateBy{canonicalPath(it.second)}
+   val pathMatches=plan.count{it.third!=null}
+   val sizeMatches=plan.count{(m,_,existing)->existing!=null&&existing.size==m.size}
    val pending=plan.filter{(m,_,existing)->existing==null||existing.size!=m.size}
-   alreadyCurrent=plan.size-pending.size
+   alreadyCurrent=sizeMatches
    val total=plan.size
    val totalBytes=local.sumOf{it.size};val pendingBytes=pending.sumOf{it.first.size};var completedUploadBytes=0L
 
@@ -62,7 +64,7 @@ class SyncService(private val context:Context){
     deletedKeys.forEach{key->remoteByKey[key]?.let{info->runCatching{smb.delete(root+"/"+info.path)}.onFailure{t->failed++;lastError="Löschen: "+info.path+" · "+(t.message?:t.javaClass.simpleName)}}}
    }
 
-   progress(SyncProgress(alreadyCurrent,total,totalBytes-pendingBytes,totalBytes,if(pending.isEmpty())"Alles aktuell" else "$alreadyCurrent bereits vorhanden · ${pending.size} werden hochgeladen",alreadyCurrent,pending.size,0))
+   progress(SyncProgress(alreadyCurrent,total,totalBytes-pendingBytes,totalBytes,"NAS: ${remoteInfo.size} Dateien · Pfadtreffer: $pathMatches · Größen-Treffer: $sizeMatches · ${pending.size} Uploads",alreadyCurrent,pending.size,0))
    for((m,relative,existing) in pending){
     coroutineContext.ensureActive()
     val target=root+"/"+relative
@@ -90,13 +92,13 @@ class SyncService(private val context:Context){
    if(failed==0){store.saveSyncIndex(settings.id,plan.map{(m,relative,_)->SettingsStore.SyncFileState(canonicalPath(relative),m.size,m.modified)})}
   }
   if(settings.direction==SyncDirection.NAS_TO_PHONE||settings.direction==SyncDirection.BIDIRECTIONAL){
-   val existing=local.map{structuredRelativePath(it.relativePath).lowercase()}.toSet();val files=smb.listRecursive(root).filter{remotePath->val rel=remotePath.removePrefix(root+"/");!rel.endsWith(".galeriesync-part")&&rel.lowercase() !in existing};val total=files.size
+   val existing=local.map{structuredRelativePath(it.relativePath).lowercase()}.toSet();val files=smb.listRecursive(root).filter{remotePath->val rel=remotePath;!rel.endsWith(".galeriesync-part")&&rel.lowercase() !in existing};val total=files.size
    progress(SyncProgress(0,total,0,0,"Dateien werden abgeglichen …"))
    files.forEach{p->try{downloadToMediaStore(smb,p,root);copied++;progress(SyncProgress(copied,total,0,0,"Heruntergeladen: "+p.substringAfterLast('/')))}catch(t:Throwable){failed++;lastError=t.message?:t.javaClass.simpleName;throw IOException("SMB-Verbindung unterbrochen bei "+p.substringAfterLast('/')+": "+lastError,t)}}
   }
   if(settings.direction==SyncDirection.BIDIRECTIONAL&&failed==0){
    val afterLocal=MediaScanner(context.contentResolver).scan(settings.sourceFolders).map{structuredRelativePath(it.relativePath)}.toSet()
-   val afterRemote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.filterNot{it.endsWith(".galeriesync-part")}.toSet()
+   val afterRemote=smb.listRecursive(root).filterNot{it.endsWith(".galeriesync-part")}.toSet()
    store.saveSyncSnapshot(settings.id,afterLocal.intersect(afterRemote))
   }
   SyncResult(copied,skipped+if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL) alreadyCurrent else 0,failed,"SMB",lastError)
