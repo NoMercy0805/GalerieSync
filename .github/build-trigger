@@ -6,3 +6,4 @@ Build detailed sync progress UI
 Build rebuilt reliable sync engine
 Build NAS root normalization fix
 Build persistent sync index and deletion propagation
+Build immediate sync cancellation fix
