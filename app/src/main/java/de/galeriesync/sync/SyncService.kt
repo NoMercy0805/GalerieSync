@@ -42,11 +42,23 @@ class SyncService(private val context:Context){
    }
   }
   if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL){
+   // Persistent one-way state: current local inventory + previous successful inventory.
+   // This lets us distinguish a real phone-side deletion from an unrelated NAS-only file.
+   val previousIndex=store.loadSyncIndex(settings.id)
    val plan=local.map{m->val relative=structuredRelativePath(m.relativePath);Triple(m,relative,remoteByKey[canonicalPath(relative)])}
+   val currentByKey=plan.associateBy{canonicalPath(it.second)}
    val pending=plan.filter{(m,_,existing)->existing==null||existing.size!=m.size}
    alreadyCurrent=plan.size-pending.size
    val total=plan.size
    val totalBytes=local.sumOf{it.size};val pendingBytes=pending.sumOf{it.first.size};var completedUploadBytes=0L
+
+   // Sync deletions: only remove remote files that were in our last successful index
+   // and are now genuinely absent from the current phone inventory.
+   val deletedKeys=previousIndex.keys-currentByKey.keys
+   if(previousIndex.isNotEmpty()&&deletedKeys.isNotEmpty()){
+    deletedKeys.forEach{key->remoteByKey[key]?.let{info->runCatching{smb.delete(root+"/"+info.path)}.onFailure{t->failed++;lastError="Löschen: "+info.path+" · "+(t.message?:t.javaClass.simpleName)}}}
+   }
+
    progress(SyncProgress(alreadyCurrent,total,totalBytes-pendingBytes,totalBytes,if(pending.isEmpty())"Alles aktuell" else "$alreadyCurrent bereits vorhanden · ${pending.size} werden hochgeladen",alreadyCurrent,pending.size,0))
    for((m,relative,existing) in pending){
     val target=root+"/"+relative
@@ -70,6 +82,8 @@ class SyncService(private val context:Context){
     }
     if(!success){failed++;lastError="Datei: "+m.displayName+" · "+(fileError?.message?:"Unbekannter Fehler");progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Fehler, weiter mit nächster Datei: "+m.displayName,alreadyCurrent,pending.size,copied))}
    }
+   // Advance deletion state only after a completely successful run.
+   if(failed==0){store.saveSyncIndex(settings.id,plan.map{(m,relative,_)->SettingsStore.SyncFileState(canonicalPath(relative),m.size,m.modified)})}
   }
   if(settings.direction==SyncDirection.NAS_TO_PHONE||settings.direction==SyncDirection.BIDIRECTIONAL){
    val existing=local.map{structuredRelativePath(it.relativePath).lowercase()}.toSet();val files=smb.listRecursive(root).filter{remotePath->val rel=remotePath.removePrefix(root+"/");!rel.endsWith(".galeriesync-part")&&rel.lowercase() !in existing};val total=files.size
