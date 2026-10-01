@@ -70,6 +70,22 @@ enum class Editor{NONE,NAS,SYNC}
 
  val vpnPermission=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){status=if(it.resultCode==android.app.Activity.RESULT_OK)"VPN-Freigabe erteilt ✓" else "VPN-Freigabe nicht erteilt"}
  LaunchedEffect(Unit){val p=if(Build.VERSION.SDK_INT>=33)arrayOf(Manifest.permission.READ_MEDIA_IMAGES,Manifest.permission.READ_MEDIA_VIDEO)else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE);if(p.any{ContextCompat.checkSelfPermission(context,it)!=PackageManager.PERMISSION_GRANTED})permission.launch(p)}
+ LaunchedEffect(Unit){
+  val wm=WorkManager.getInstance(context)
+  val active=withContext(Dispatchers.IO){wm.getWorkInfosForUniqueWork("GalerieSync-manual").get().firstOrNull{!it.state.isFinished}}
+  if(active!=null){
+   running=true;status="Synchronisation läuft"
+   var lastBytes=active.progress.getLong("doneBytes",0L);var lastAt=System.currentTimeMillis()
+   wm.getWorkInfoByIdFlow(active.id).collect{info->if(info!=null){
+    val d=info.progress
+    syncCurrent=d.getInt("doneFiles",syncCurrent);syncTotal=d.getInt("totalFiles",syncTotal)
+    syncExisting=d.getInt("alreadyExisting",syncExisting);syncPending=d.getInt("pendingUploads",syncPending);syncUploaded=d.getInt("uploadedThisRun",syncUploaded)
+    val newBytes=d.getLong("doneBytes",syncDoneBytes);syncTotalBytes=d.getLong("totalBytes",syncTotalBytes);syncFile=d.getString("message")?:syncFile
+    val now=System.currentTimeMillis();if(now-lastAt>=750&&newBytes>=lastBytes){syncSpeed=(newBytes-lastBytes)*1000L/(now-lastAt).coerceAtLeast(1);lastBytes=newBytes;lastAt=now};syncDoneBytes=newBytes
+    if(info.state.isFinished){running=false;syncSpeed=0;status=if(info.state==androidx.work.WorkInfo.State.SUCCEEDED)"Synchronisation abgeschlossen ✓" else "Synchronisation unterbrochen · Details siehe Benachrichtigung";return@collect}
+   }}
+  }
+ }
  fun saveNas(v:NasSettings){nas=(nas.filterNot{it.id==v.id}+v);store.saveConnections(nas)}
  fun deleteNas(v:NasSettings){nas=nas.filterNot{it.id==v.id};profiles=profiles.filterNot{it.host==v.host&&it.share==v.share};nasStorage=nasStorage-v.id;nasStorageUpdated=nasStorageUpdated-v.id;store.removeNasStorage(v.id);store.saveConnections(nas);store.saveProfiles(profiles)}
  fun saveProfile(v:NasSettings){profiles.firstOrNull{it.id==v.id}?.let{old->store.releaseRemovedSourceFolders(v.id,old.sourceFolders,v.sourceFolders)};profiles=profiles.filterNot{it.id==v.id}+v;store.saveProfiles(profiles)}
