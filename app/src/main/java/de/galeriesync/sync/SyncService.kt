@@ -42,12 +42,10 @@ class SyncService(private val context:Context){
    }
   }
   if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL){
-   val localPaths=local.map{structuredRelativePath(it.relativePath)}.toSet()
-   val localKeys=localPaths.map{canonicalPath(it)}.toSet()
    val pending=local.filter{m->val relative=structuredRelativePath(m.relativePath);val existing=remoteByKey[canonicalPath(relative)];existing==null||existing.size!=m.size}
    alreadyCurrent=local.size-pending.size
    val total=local.size
-   val totalBytes=local.sumOf{it.size};var processedBytes=local.filterNot{it in pending}.sumOf{it.size}
+   val totalBytes=local.sumOf{it.size};var processedBytes=totalBytes-pending.sumOf{it.size}
    progress(SyncProgress(alreadyCurrent,total,processedBytes,totalBytes,if(pending.isEmpty())"Alles aktuell" else "$alreadyCurrent von $total bereits vorhanden · ${pending.size} ausstehend"))
    val progressMutex=Mutex();val uploadSlots=Semaphore(2);var lastProgressAt=0L
    pending.map{m->async{
