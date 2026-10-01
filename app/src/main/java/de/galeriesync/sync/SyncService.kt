@@ -42,14 +42,16 @@ class SyncService(private val context:Context){
   if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL){
    val localPaths=local.map{structuredRelativePath(it.relativePath)}.toSet()
    if(settings.direction==SyncDirection.PHONE_TO_NAS){val obsolete=remote-localPaths;obsolete.forEach{rel->smb.delete(root+"/"+rel)};remote=remote-obsolete}
-   val total=local.size
-   val totalBytes=local.sumOf{it.size};var processedBytes=0L
-   progress(SyncProgress(0,total,0,totalBytes,"Dateien werden abgeglichen …"))
+   val pending=local.filter{m->val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative;relative !in remote||smb.fileSize(target)!=m.size}
+   val alreadyCurrent=local.size-pending.size
+   val total=pending.size
+   val totalBytes=pending.sumOf{it.size};var processedBytes=0L
+   progress(SyncProgress(0,total,0,totalBytes,if(total==0)"Alles aktuell" else "$total Dateien werden synchronisiert …"))
    val progressMutex=Mutex();val uploadSlots=Semaphore(2);var lastProgressAt=0L
-   local.map{m->async{
+   pending.map{m->async{
     uploadSlots.withPermit{
      val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative
-     if(relative in remote&&smb.fileSize(target)==m.size){progressMutex.withLock{skipped++;processedBytes+=m.size;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Übersprungen: "+m.displayName))}}
+     if(false){ }
      else if(settings.direction==SyncDirection.BIDIRECTIONAL&&relative in remote&&smb.fileSize(target)!=m.size&&smb.lastModified(target)>m.modified+2000L){progressMutex.withLock{skipped++;processedBytes+=m.size;progress(SyncProgress(copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Konflikt: NAS-Version ist neuer · "+m.displayName))}}
      else try{
       var uploaded=false;var attempt=0;var uploadError:Throwable?=null
@@ -83,7 +85,7 @@ class SyncService(private val context:Context){
    val afterRemote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.filterNot{it.endsWith(".galeriesync-part")}.toSet()
    store.saveSyncSnapshot(settings.id,afterLocal.intersect(afterRemote))
   }
-  SyncResult(copied,skipped,failed,"SMB",lastError)
+  SyncResult(copied,skipped+if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL) alreadyCurrent else 0,failed,"SMB",lastError)
  }
  private fun structuredRelativePath(relativePath:String):String{
   // Keep Android's MediaStore path exactly below the configured NAS target.
