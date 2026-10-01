@@ -48,21 +48,27 @@ class SyncService(private val context:Context){
    // Persistent one-way state: current local inventory + previous successful inventory.
    // This lets us distinguish a real phone-side deletion from an unrelated NAS-only file.
    val previousIndex=store.loadSyncIndex(settings.id)
-   // Match entirely in memory; never perform one SMB request per local file.
+   // Fast path: use the one-shot NAS inventory. Reliable fallback: only paths the
+   // inventory did not expose are checked directly over SMB, with bounded concurrency.
    val remoteVariants=buildMap<String,SmbProvider.RemoteFileInfo>{
     remoteInfo.forEach{info->
      val raw=info.path.replace('\\','/').trim('/')
      val noRoot=raw.removePrefix(root.trim('/')+"/")
-     listOf(raw,noRoot,raw.removePrefix("Bilder & Videos/"),noRoot.removePrefix("Bilder & Videos/")).forEach{v->
-      if(v.isNotBlank())putIfAbsent(canonicalPath(v),info)
-     }
+     listOf(raw,noRoot,raw.removePrefix("Bilder & Videos/"),noRoot.removePrefix("Bilder & Videos/")).forEach{v->if(v.isNotBlank())putIfAbsent(canonicalPath(v),info)}
     }
    }
-   progress(SyncProgress(0,local.size,0,local.sumOf{it.size},"NAS-Inventar: "+remoteInfo.size+" Dateien · lokale Zuordnung wird erstellt …"))
-   val plan=local.map{m->
+   val directCheckGate=Semaphore(8)
+   val plan=local.mapIndexed{index,m->async{
     val relative=structuredRelativePath(m.relativePath)
-    Triple(m,relative,remoteVariants[canonicalPath(relative)])
-   }
+    val listed=remoteVariants[canonicalPath(relative)]
+    val existing=if(listed!=null)listed else directCheckGate.withPermit{
+     coroutineContext.ensureActive()
+     val size=runCatching{smb.fileSize(root+"/"+relative)}.getOrDefault(-1L)
+     if(size>=0L)SmbProvider.RemoteFileInfo(relative,size) else null
+    }
+    if(index%250==0)progress(SyncProgress(index,local.size,0,local.sumOf{it.size},"Vorhandene Dateien werden geprüft · $index / ${local.size}"))
+    Triple(m,relative,existing)
+   }}.awaitAll()
    val currentByKey=plan.associateBy{canonicalPath(it.second)}
    val pathMatches=plan.count{it.third!=null}
    val sizeMatches=plan.count{(m,_,existing)->existing!=null&&existing.size==m.size}
