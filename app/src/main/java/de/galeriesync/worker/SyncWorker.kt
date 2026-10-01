@@ -12,6 +12,7 @@ import de.galeriesync.data.SettingsStore
 import de.galeriesync.sync.SyncProgress
 import de.galeriesync.sync.SyncService
 import de.galeriesync.vpn.VpnManager
+import kotlinx.coroutines.CancellationException
 class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(appContext,params){
  private val nm=applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
  private val channel="galeriesync_sync"
@@ -36,7 +37,7 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
     }
    }finally{if(startedVpn)VpnManager.disconnect()}
    nm.cancel(4101);notifyDone("Sync erfolgreich","GalerieSync wurde erfolgreich synchronisiert");Result.success()
-  }.getOrElse{nm.cancel(4101);notifyDone("GalerieSync","Synchronisation fehlgeschlagen: "+(it.message?:"Unbekannter Fehler"));if(requested!=null)Result.failure(workDataOf("error" to (it.message?:"Unbekannter Fehler"))) else Result.retry()}
+  }.getOrElse{nm.cancel(4101);if(it is CancellationException)throw it;notifyDone("GalerieSync","Synchronisation fehlgeschlagen: "+(it.message?:"Unbekannter Fehler"));if(requested!=null)Result.failure(workDataOf("error" to (it.message?:"Unbekannter Fehler"))) else Result.retry()}
  }
  private fun formatBytes(v:Long):String=when{v>=1073741824L->"%.1f GB".format(v/1073741824.0);v>=1048576L->"%.1f MB".format(v/1048576.0);v>=1024L->"%.1f KB".format(v/1024.0);else->"$v B"}
 }
