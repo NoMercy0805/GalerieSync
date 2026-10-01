@@ -48,7 +48,17 @@ class SyncService(private val context:Context){
    // Persistent one-way state: current local inventory + previous successful inventory.
    // This lets us distinguish a real phone-side deletion from an unrelated NAS-only file.
    val previousIndex=store.loadSyncIndex(settings.id)
-   val plan=local.map{m->val relative=structuredRelativePath(m.relativePath);Triple(m,relative,remoteByKey[canonicalPath(relative)])}
+   // Build the plan from the inventory first. If the recursive listing misses a path,
+   // verify the exact SMB target directly. Files written by GalerieSync must therefore
+   // be recognized on the next run even if a NAS returns unusual recursive paths.
+   val plan=local.map{m->
+    val relative=structuredRelativePath(m.relativePath)
+    val key=canonicalPath(relative)
+    val listed=remoteByKey[key]
+    val exactSize=if(listed==null)runCatching{smb.fileSize(root+"/"+relative)}.getOrDefault(-1L) else listed.size
+    val existing=if(exactSize>=0L)SmbProvider.RemoteFileInfo(relative,exactSize) else null
+    Triple(m,relative,existing)
+   }
    val currentByKey=plan.associateBy{canonicalPath(it.second)}
    val pathMatches=plan.count{it.third!=null}
    val sizeMatches=plan.count{(m,_,existing)->existing!=null&&existing.size==m.size}
