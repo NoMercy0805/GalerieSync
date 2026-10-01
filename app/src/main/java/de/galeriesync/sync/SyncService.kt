@@ -84,7 +84,7 @@ class SyncService(private val context:Context){
     uploadGate.withPermit{
     coroutineContext.ensureActive()
     val target=root+"/"+relative
-    if(settings.direction==SyncDirection.BIDIRECTIONAL&&existing!=null&&smb.lastModified(target)>m.modified+2000L){skipped++;progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Konflikt übersprungen: "+m.displayName,alreadyCurrent,pending.size,copied));continue}
+    if(settings.direction==SyncDirection.BIDIRECTIONAL&&existing!=null&&smb.lastModified(target)>m.modified+2000L){skipped++;progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Konflikt übersprungen: "+m.displayName,alreadyCurrent,pending.size,copied));return@withPermit}
     var success=false;var fileError:Throwable?=null
     for(attempt in 1..3){
      var attemptBytes=0L;val temp=target+".galeriesync-part"
