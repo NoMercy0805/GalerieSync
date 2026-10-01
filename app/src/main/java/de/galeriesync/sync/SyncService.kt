@@ -89,7 +89,12 @@ class SyncService(private val context:Context){
   }
   SyncResult(copied,skipped+if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL) alreadyCurrent else 0,failed,"SMB",lastError)
  }
- private fun canonicalPath(path:String)=path.replace('\\','/').trim('/').lowercase(java.util.Locale.ROOT)
+ private fun canonicalPath(path:String):String{
+  val normalized=path.replace('\\','/').trim('/').lowercase(java.util.Locale.ROOT)
+  // Older versions stored media below an extra "Bilder & Videos" directory.
+  // Normalize that legacy layout so existing files are skipped instead of re-uploaded.
+  return normalized.removePrefix("bilder & videos/")
+ }
  private fun structuredRelativePath(relativePath:String):String{
   // Keep Android's MediaStore path exactly below the configured NAS target.
   // Example: DCIM/Camera/IMG.jpg -> <remoteFolder>/DCIM/Camera/IMG.jpg
