@@ -22,7 +22,7 @@ class SmbProvider(private val settings:NasSettings){
  fun test():Boolean{SmbFile(url(),context).connect();return true}
  fun storageInfo():SmbStorageInfo{val f=SmbFile(url(),context);f.connect();val free=f.diskFreeSpace;val total=runCatching{f.length()}.getOrDefault(0L);return SmbStorageInfo(total,free)}
  fun ensureDirectory(path:String){val f=SmbFile(url(path),context);if(!f.exists())f.mkdirs()}
- fun listRecursive(path:String=""):List<String>{val out=mutableListOf<String>();val root=SmbFile(url(path),context);if(!root.exists())return out;root.listFiles().forEach{f->val rel=if(path.isBlank())f.name else path.trimEnd('/')+"/"+f.name;if(f.isDirectory)out+=listRecursive(rel) else out+=rel};return out}
+ fun listRecursive(path:String=""):List<String>{val out=mutableListOf<String>();val clean=path.trim('/');val root=SmbFile(url(clean),context);if(!root.exists())return out;fun walk(dir:SmbFile,relative:String){dir.listFiles().forEach{f->val name=f.name.trimEnd('/');val rel=if(relative.isBlank())name else relative.trimEnd('/')+"/"+name;if(f.isDirectory)walk(f,rel) else out+=rel}};walk(root,clean);return out}
  fun delete(path:String){val f=SmbFile(url(path),context);if(f.exists())f.delete()}
  fun fileSize(path:String):Long{val f=SmbFile(url(path),context);return if(f.exists())f.length() else -1L}
  fun lastModified(path:String):Long{val f=SmbFile(url(path),context);return if(f.exists())f.lastModified() else 0L}
