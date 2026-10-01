@@ -25,7 +25,7 @@ class SyncService(private val context:Context){
  suspend fun run(settings:NasSettings,progress:(SyncProgress)->Unit={}):SyncResult=withContext(Dispatchers.IO){
   require(settings.host.isNotBlank()&&settings.share.isNotBlank()){"NAS-Adresse und Freigabe fehlen."};val smb=SmbProvider(settings);var connected=false;var connectError:Throwable?=null;repeat(5){if(!connected){runCatching{smb.test()}.onSuccess{connected=true}.onFailure{connectError=it};if(!connected)kotlinx.coroutines.delay(1000)}};if(!connected)throw IOException("NAS nach VPN-Aufbau nicht erreichbar: "+(connectError?.message?:"SMB-Verbindung fehlgeschlagen"),connectError);smb.ensureDirectory(settings.remoteFolder)
   progress(SyncProgress(0,0,0,0,"Dateien werden geprüft …"))
-  val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trim('/');val speedLimitBytes=SettingsStore(context).loadSpeedLimitKbps()*1024L
+  val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trim('/');val settingsStore=SettingsStore(context);val speedLimitBytes=settingsStore.loadSpeedLimitKbps()*1024L;val concurrentUploads=settingsStore.loadConcurrentUploads()
   var copied=0;var skipped=0;var alreadyCurrent=0;var failed=0;var lastError:String?=null
   val remoteInfo=smb.listRecursiveInfo(root).filterNot{it.path.endsWith(".galeriesync-part")}
   var remote=remoteInfo.map{it.path}.toSet()
@@ -79,7 +79,9 @@ class SyncService(private val context:Context){
    }
 
    progress(SyncProgress(alreadyCurrent,total,totalBytes-pendingBytes,totalBytes,"NAS: ${remoteInfo.size} Dateien · Pfadtreffer: $pathMatches · Größen-Treffer: $sizeMatches · ${pending.size} Uploads",alreadyCurrent,pending.size,0))
-   for((m,relative,existing) in pending){
+   val uploadMutex=Mutex();val uploadGate=Semaphore(concurrentUploads)
+   pending.map{(m,relative,existing)->async{
+    uploadGate.withPermit{
     coroutineContext.ensureActive()
     val target=root+"/"+relative
     if(settings.direction==SyncDirection.BIDIRECTIONAL&&existing!=null&&smb.lastModified(target)>m.modified+2000L){skipped++;progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Konflikt übersprungen: "+m.displayName,alreadyCurrent,pending.size,copied));continue}
@@ -97,11 +99,12 @@ class SyncService(private val context:Context){
        };dst.flush()
       }}}?:throw IOException("Lokale Datei kann nicht geöffnet werden")
       if(smb.fileSize(temp)!=m.size)throw IOException("Größenprüfung fehlgeschlagen")
-      smb.move(temp,target);success=true;completedUploadBytes+=m.size;copied++;progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Hochgeladen: "+m.displayName,alreadyCurrent,pending.size,copied));break
+      smb.move(temp,target);success=true;uploadMutex.withLock{completedUploadBytes+=m.size;copied++};progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Hochgeladen: "+m.displayName,alreadyCurrent,pending.size,copied));break
      }catch(t:CancellationException){runCatching{smb.delete(temp)};throw t}catch(t:Throwable){fileError=t;runCatching{smb.delete(temp)}}
     }
-    if(!success){failed++;lastError="Datei: "+m.displayName+" · "+(fileError?.message?:"Unbekannter Fehler");progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Fehler, weiter mit nächster Datei: "+m.displayName,alreadyCurrent,pending.size,copied))}
-   }
+    if(!success){uploadMutex.withLock{failed++};lastError="Datei: "+m.displayName+" · "+(fileError?.message?:"Unbekannter Fehler");progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Fehler, weiter mit nächster Datei: "+m.displayName,alreadyCurrent,pending.size,copied))}
+    }
+   }}.awaitAll()
    // Advance deletion state only after a completely successful run.
    if(failed==0){store.saveSyncIndex(settings.id,plan.map{(m,relative,_)->SettingsStore.SyncFileState(canonicalPath(relative),m.size,m.modified)})}
   }
