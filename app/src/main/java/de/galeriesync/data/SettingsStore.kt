@@ -36,6 +36,8 @@ class SettingsStore(context:Context){
  fun loadAutoSyncValue():Int = prefs.getInt("auto_sync_value",15)
  fun loadAutoSyncUnit():String = prefs.getString("auto_sync_unit","MINUTES")?:"MINUTES"
  fun saveAutoSyncSchedule(value:Int,unit:String)=prefs.edit().putInt("auto_sync_value",value).putString("auto_sync_unit",unit).apply()
+ fun loadConcurrentUploads():Int = prefs.getInt("concurrent_uploads",1).coerceIn(1,6)
+ fun saveConcurrentUploads(v:Int)=prefs.edit().putInt("concurrent_uploads",v.coerceIn(1,6)).apply()
  fun loadSpeedLimitKbps():Long = prefs.getLong("speed_limit_kbps",0L)
  fun saveSpeedLimitKbps(v:Long)=prefs.edit().putLong("speed_limit_kbps",v.coerceAtLeast(0L)).apply()
  fun loadNotificationsEnabled():Boolean = prefs.getBoolean("sync_notifications",false)
