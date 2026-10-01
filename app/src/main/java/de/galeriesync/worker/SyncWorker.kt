@@ -21,7 +21,7 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
  private fun notifyDone(title:String,text:String){if(SettingsStore(applicationContext).loadNotificationsEnabled()){ensureChannel();nm.notify(4102,notification(title,text))}}
  override suspend fun doWork():Result{
   val store=SettingsStore(applicationContext);val requested=inputData.getString("profile_id");val profiles=store.loadProfiles().filter{it.enabled&&(requested==null||it.id==requested)};if(profiles.isEmpty())return Result.success()
-  val showNotifications=store.loadNotificationsEnabled();setForeground(foreground("Synchronisation wird gestartet …",0));if(showNotifications)nm.notify(4103,notification("GalerieSync","Synchronisation gestartet"))
+  setForeground(foreground("Synchronisation wird vorbereitet …",0))
   var startedVpn=false;var lastBytes=0L;var lastAt=System.currentTimeMillis();var speed=0L;var lastNotificationAt=0L
   return runCatching{
    try{
@@ -35,8 +35,8 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
      }
     }
    }finally{if(startedVpn)VpnManager.disconnect()}
-   notifyDone("GalerieSync","Synchronisation erfolgreich abgeschlossen");Result.success()
-  }.getOrElse{notifyDone("GalerieSync","Synchronisation fehlgeschlagen: "+(it.message?:"Unbekannter Fehler"));if(requested!=null)Result.failure(workDataOf("error" to (it.message?:"Unbekannter Fehler"))) else Result.retry()}
+   nm.cancel(4101);notifyDone("Sync erfolgreich","GalerieSync wurde erfolgreich synchronisiert");Result.success()
+  }.getOrElse{nm.cancel(4101);notifyDone("GalerieSync","Synchronisation fehlgeschlagen: "+(it.message?:"Unbekannter Fehler"));if(requested!=null)Result.failure(workDataOf("error" to (it.message?:"Unbekannter Fehler"))) else Result.retry()}
  }
  private fun formatBytes(v:Long):String=when{v>=1073741824L->"%.1f GB".format(v/1073741824.0);v>=1048576L->"%.1f MB".format(v/1048576.0);v>=1024L->"%.1f KB".format(v/1024.0);else->"$v B"}
 }
