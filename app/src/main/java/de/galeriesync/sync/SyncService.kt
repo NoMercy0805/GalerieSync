@@ -8,6 +8,9 @@ import de.galeriesync.data.SettingsStore
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -61,6 +64,7 @@ class SyncService(private val context:Context){
 
    progress(SyncProgress(alreadyCurrent,total,totalBytes-pendingBytes,totalBytes,if(pending.isEmpty())"Alles aktuell" else "$alreadyCurrent bereits vorhanden · ${pending.size} werden hochgeladen",alreadyCurrent,pending.size,0))
    for((m,relative,existing) in pending){
+    coroutineContext.ensureActive()
     val target=root+"/"+relative
     if(settings.direction==SyncDirection.BIDIRECTIONAL&&existing!=null&&smb.lastModified(target)>m.modified+2000L){skipped++;progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Konflikt übersprungen: "+m.displayName,alreadyCurrent,pending.size,copied));continue}
     var success=false;var fileError:Throwable?=null
@@ -71,14 +75,14 @@ class SyncService(private val context:Context){
       target.substringBeforeLast('/').takeIf{it!=root}?.let{smb.ensureDirectory(it)};runCatching{smb.delete(temp)}
       context.contentResolver.openInputStream(m.uri)?.use{input->BufferedInputStream(input).use{src->BufferedOutputStream(smb.openOutput(temp)).use{dst->
        val buffer=ByteArray(256*1024);val throttleStart=System.nanoTime();var lastReport=0L
-       while(true){val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);attemptBytes+=read
+       while(true){coroutineContext.ensureActive();val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);attemptBytes+=read
         if(speedLimitBytes>0){val expectedMs=attemptBytes*1000L/speedLimitBytes;val elapsedMs=(System.nanoTime()-throttleStart)/1_000_000L;if(expectedMs>elapsedMs)kotlinx.coroutines.delay((expectedMs-elapsedMs).coerceAtMost(1000L))}
         if(attemptBytes-lastReport>=1024*1024){lastReport=attemptBytes;progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes+attemptBytes).coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName,alreadyCurrent,pending.size,copied))}
        };dst.flush()
       }}}?:throw IOException("Lokale Datei kann nicht geöffnet werden")
       if(smb.fileSize(temp)!=m.size)throw IOException("Größenprüfung fehlgeschlagen")
       smb.move(temp,target);success=true;completedUploadBytes+=m.size;copied++;progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Hochgeladen: "+m.displayName,alreadyCurrent,pending.size,copied));break
-     }catch(t:Throwable){fileError=t;runCatching{smb.delete(temp)}}
+     }catch(t:CancellationException){runCatching{smb.delete(temp)};throw t}catch(t:Throwable){fileError=t;runCatching{smb.delete(temp)}}
     }
     if(!success){failed++;lastError="Datei: "+m.displayName+" · "+(fileError?.message?:"Unbekannter Fehler");progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Fehler, weiter mit nächster Datei: "+m.displayName,alreadyCurrent,pending.size,copied))}
    }
