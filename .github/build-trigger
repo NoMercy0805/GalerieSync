@@ -11,3 +11,4 @@ Build root-relative inventory diagnostics
 Build exact SMB existence fallback
 Build fast in-memory NAS matching
 Build reordered sync progress UI
+Build hybrid reliable NAS matching
