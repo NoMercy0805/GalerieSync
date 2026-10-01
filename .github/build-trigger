@@ -13,3 +13,4 @@ Build fast in-memory NAS matching
 Build reordered sync progress UI
 Build hybrid reliable NAS matching
 Build reliable sequential NAS scan with progress
+Build restore running sync UI after app restart
