@@ -16,7 +16,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import java.io.IOException
-data class SyncProgress(val doneFiles:Int,val totalFiles:Int,val doneBytes:Long,val totalBytes:Long,val message:String)
+data class SyncProgress(val doneFiles:Int,val totalFiles:Int,val doneBytes:Long,val totalBytes:Long,val message:String,val alreadyExisting:Int=0,val pendingUploads:Int=0,val uploadedThisRun:Int=0)
 data class SyncResult(val copied:Int,val skipped:Int,val failed:Int,val transport:String="SMB",val lastError:String?=null)
 class SyncService(private val context:Context){
  suspend fun run(settings:NasSettings,progress:(SyncProgress)->Unit={}):SyncResult=withContext(Dispatchers.IO){
@@ -46,12 +46,12 @@ class SyncService(private val context:Context){
    alreadyCurrent=local.size-pending.size
    val total=local.size
    val totalBytes=local.sumOf{it.size};var processedBytes=totalBytes-pending.sumOf{it.size}
-   progress(SyncProgress(alreadyCurrent,total,processedBytes,totalBytes,if(pending.isEmpty())"Alles aktuell" else "$alreadyCurrent von $total bereits vorhanden · ${pending.size} ausstehend"))
+   progress(SyncProgress(alreadyCurrent,total,processedBytes,totalBytes,if(pending.isEmpty())"Alles aktuell" else "$alreadyCurrent bereits vorhanden · ${pending.size} werden hochgeladen",alreadyCurrent,pending.size,0))
    val progressMutex=Mutex();val uploadSlots=Semaphore(2);var lastProgressAt=0L
    pending.map{m->async{
     uploadSlots.withPermit{
      val relative=structuredRelativePath(m.relativePath);val target=root+"/"+relative
-     if(settings.direction==SyncDirection.BIDIRECTIONAL&&relative in remote&&smb.fileSize(target)!=m.size&&smb.lastModified(target)>m.modified+2000L){progressMutex.withLock{skipped++;processedBytes+=m.size;progress(SyncProgress(alreadyCurrent+copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Konflikt: NAS-Version ist neuer · "+m.displayName))}}
+     if(settings.direction==SyncDirection.BIDIRECTIONAL&&relative in remote&&smb.fileSize(target)!=m.size&&smb.lastModified(target)>m.modified+2000L){progressMutex.withLock{skipped++;processedBytes+=m.size;progress(SyncProgress(alreadyCurrent+copied+skipped,total,processedBytes.coerceAtMost(totalBytes),totalBytes,"Konflikt: NAS-Version ist neuer · "+m.displayName,alreadyCurrent,pending.size,copied))}}
      else try{
       var uploaded=false;var attempt=0;var uploadError:Throwable?=null
       while(!uploaded&&attempt<3){attempt++;var attemptBytes=0L
