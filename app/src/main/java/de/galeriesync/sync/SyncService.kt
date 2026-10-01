@@ -19,7 +19,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import java.io.IOException
-data class SyncProgress(val doneFiles:Int,val totalFiles:Int,val doneBytes:Long,val totalBytes:Long,val message:String,val alreadyExisting:Int=0,val pendingUploads:Int=0,val uploadedThisRun:Int=0)
+data class SyncProgress(val doneFiles:Int,val totalFiles:Int,val doneBytes:Long,val totalBytes:Long,val message:String,val alreadyExisting:Int=0,val pendingUploads:Int=0,val uploadedThisRun:Int=0,val activeUploads:List<String> = emptyList())
 data class SyncResult(val copied:Int,val skipped:Int,val failed:Int,val transport:String="SMB",val lastError:String?=null)
 class SyncService(private val context:Context){
  suspend fun run(settings:NasSettings,progress:(SyncProgress)->Unit={}):SyncResult=withContext(Dispatchers.IO){
@@ -79,10 +79,12 @@ class SyncService(private val context:Context){
    }
 
    progress(SyncProgress(alreadyCurrent,total,totalBytes-pendingBytes,totalBytes,"NAS: ${remoteInfo.size} Dateien · Pfadtreffer: $pathMatches · Größen-Treffer: $sizeMatches · ${pending.size} Uploads",alreadyCurrent,pending.size,0))
-   val uploadMutex=Mutex();val uploadGate=Semaphore(concurrentUploads)
+   val uploadMutex=Mutex();val uploadGate=Semaphore(concurrentUploads);val activeUploads=linkedSetOf<String>()
    pending.map{(m,relative,existing)->async{
     uploadGate.withPermit{
     coroutineContext.ensureActive()
+    uploadMutex.withLock{activeUploads+=m.displayName}
+    val activeNow=suspend{uploadMutex.withLock{activeUploads.toList()}}
     val target=root+"/"+relative
     if(settings.direction==SyncDirection.BIDIRECTIONAL&&existing!=null&&smb.lastModified(target)>m.modified+2000L){skipped++;progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Konflikt übersprungen: "+m.displayName,alreadyCurrent,pending.size,copied));return@withPermit}
     var success=false;var fileError:Throwable?=null
@@ -95,14 +97,14 @@ class SyncService(private val context:Context){
        val buffer=ByteArray(256*1024);val throttleStart=System.nanoTime();var lastReport=0L
        while(true){coroutineContext.ensureActive();val read=src.read(buffer);if(read<0)break;dst.write(buffer,0,read);attemptBytes+=read
         if(speedLimitBytes>0){val expectedMs=attemptBytes*1000L/speedLimitBytes;val elapsedMs=(System.nanoTime()-throttleStart)/1_000_000L;if(expectedMs>elapsedMs)kotlinx.coroutines.delay((expectedMs-elapsedMs).coerceAtMost(1000L))}
-        if(attemptBytes-lastReport>=1024*1024){lastReport=attemptBytes;progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes+attemptBytes).coerceAtMost(totalBytes),totalBytes,"Hochladen: "+m.displayName,alreadyCurrent,pending.size,copied))}
+        if(attemptBytes-lastReport>=1024*1024){lastReport=attemptBytes;progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes+attemptBytes).coerceAtMost(totalBytes),totalBytes,"Hochladen",alreadyCurrent,pending.size,copied,activeNow()))}
        };dst.flush()
       }}}?:throw IOException("Lokale Datei kann nicht geöffnet werden")
       if(smb.fileSize(temp)!=m.size)throw IOException("Größenprüfung fehlgeschlagen")
-      smb.move(temp,target);success=true;uploadMutex.withLock{completedUploadBytes+=m.size;copied++};progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Hochgeladen: "+m.displayName,alreadyCurrent,pending.size,copied));break
+      smb.move(temp,target);success=true;uploadMutex.withLock{completedUploadBytes+=m.size;copied++};uploadMutex.withLock{activeUploads-=m.displayName};progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Hochladen",alreadyCurrent,pending.size,copied,activeNow()));break
      }catch(t:CancellationException){runCatching{smb.delete(temp)};throw t}catch(t:Throwable){fileError=t;runCatching{smb.delete(temp)}}
     }
-    if(!success){uploadMutex.withLock{failed++};lastError="Datei: "+m.displayName+" · "+(fileError?.message?:"Unbekannter Fehler");progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Fehler, weiter mit nächster Datei: "+m.displayName,alreadyCurrent,pending.size,copied))}
+    if(!success){uploadMutex.withLock{activeUploads-=m.displayName;failed++};lastError="Datei: "+m.displayName+" · "+(fileError?.message?:"Unbekannter Fehler");progress(SyncProgress(alreadyCurrent+copied+skipped,total,(totalBytes-pendingBytes+completedUploadBytes).coerceAtMost(totalBytes),totalBytes,"Fehler, weiter mit nächster Datei: "+m.displayName,alreadyCurrent,pending.size,copied))}
     }
    }}.awaitAll()
    // Advance deletion state only after a completely successful run.
