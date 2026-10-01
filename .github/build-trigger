@@ -9,3 +9,4 @@ Build persistent sync index and deletion propagation
 Build immediate sync cancellation fix
 Build root-relative inventory diagnostics
 Build exact SMB existence fallback
+Build fast in-memory NAS matching
