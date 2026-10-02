@@ -36,6 +36,8 @@ class SettingsStore(context:Context){
  fun loadAutoSyncValue():Int = prefs.getInt("auto_sync_value",15)
  fun loadAutoSyncUnit():String = prefs.getString("auto_sync_unit","MINUTES")?:"MINUTES"
  fun saveAutoSyncSchedule(value:Int,unit:String)=prefs.edit().putInt("auto_sync_value",value).putString("auto_sync_unit",unit).apply()
+ fun loadConcurrentUploads():Int = prefs.getInt("concurrent_uploads",1).coerceIn(1,6)
+ fun saveConcurrentUploads(v:Int)=prefs.edit().putInt("concurrent_uploads",v.coerceIn(1,6)).apply()
  fun loadSpeedLimitKbps():Long = prefs.getLong("speed_limit_kbps",0L)
  fun saveSpeedLimitKbps(v:Long)=prefs.edit().putLong("speed_limit_kbps",v.coerceAtLeast(0L)).apply()
  fun loadNotificationsEnabled():Boolean = prefs.getBoolean("sync_notifications",false)
@@ -49,6 +51,9 @@ class SettingsStore(context:Context){
  fun saveProfileLastSync(id:String,text:String){val raw=prefs.getString("profile_last_sync","{}")?:"{}";val o=runCatching{JSONObject(raw)}.getOrDefault(JSONObject());o.put(id,text);prefs.edit().putString("profile_last_sync",o.toString()).apply()}
  fun loadSyncHistory():List<String> = (prefs.getString("sync_history","")?:"").lines().filter{it.isNotBlank()}
  fun addSyncHistory(entry:String){val items=(listOf(entry)+loadSyncHistory()).take(100);prefs.edit().putString("sync_history",items.joinToString("\n")).apply()}
+ data class SyncFileState(val path:String,val size:Long,val modified:Long)
+ fun loadSyncIndex(profileId:String):Map<String,SyncFileState>{val raw=prefs.getString("sync_index_"+profileId,"[]")?:"[]";return runCatching{val a=JSONArray(raw);(0 until a.length()).mapNotNull{i->val o=a.optJSONObject(i)?:return@mapNotNull null;val p=o.optString("path");if(p.isBlank())null else p to SyncFileState(p,o.optLong("size",-1L),o.optLong("modified",0L))}.toMap()}.getOrDefault(emptyMap())}
+ fun saveSyncIndex(profileId:String,files:Collection<SyncFileState>){val a=JSONArray();files.forEach{s->a.put(JSONObject().put("path",s.path).put("size",s.size).put("modified",s.modified))};prefs.edit().putString("sync_index_"+profileId,a.toString()).apply()}
  fun loadSyncSnapshot(profileId:String):Set<String>{val raw=prefs.getString("sync_snapshot_"+profileId,"[]")?:"[]";return runCatching{val a=JSONArray(raw);(0 until a.length()).map{a.optString(it)}.filter{it.isNotBlank()}.toSet()}.getOrDefault(emptySet())}
  fun saveSyncSnapshot(profileId:String,paths:Set<String>){prefs.edit().putString("sync_snapshot_"+profileId,JSONArray(paths.toList()).toString()).apply()}
  fun releaseRemovedSourceFolders(profileId:String,oldFolders:Set<String>,newFolders:Set<String>){val removed=oldFolders-newFolders;if(removed.isEmpty())return;val snapshot=loadSyncSnapshot(profileId);val kept=snapshot.filterNot{path->removed.any{folder->val clean=folder.trim('/');path==clean||path.startsWith("$clean/")}}.toSet();saveSyncSnapshot(profileId,kept)}
