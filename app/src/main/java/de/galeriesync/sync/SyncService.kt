@@ -20,13 +20,13 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import java.io.IOException
 data class SyncProgress(val doneFiles:Int,val totalFiles:Int,val doneBytes:Long,val totalBytes:Long,val message:String,val alreadyExisting:Int=0,val pendingUploads:Int=0,val uploadedThisRun:Int=0,val activeUploads:List<String> = emptyList())
-data class SyncResult(val copied:Int,val skipped:Int,val failed:Int,val transport:String="SMB",val lastError:String?=null)
+data class SyncResult(val copied:Int,val skipped:Int,val failed:Int,val deleted:Int=0,val transport:String="SMB",val lastError:String?=null)
 class SyncService(private val context:Context){
  suspend fun run(settings:NasSettings,progress:(SyncProgress)->Unit={}):SyncResult=withContext(Dispatchers.IO){
   require(settings.host.isNotBlank()&&settings.share.isNotBlank()){"NAS-Adresse und Freigabe fehlen."};val smb=SmbProvider(settings);var connected=false;var connectError:Throwable?=null;repeat(5){if(!connected){runCatching{smb.test()}.onSuccess{connected=true}.onFailure{connectError=it};if(!connected)kotlinx.coroutines.delay(1000)}};if(!connected)throw IOException("NAS nach VPN-Aufbau nicht erreichbar: "+(connectError?.message?:"SMB-Verbindung fehlgeschlagen"),connectError);smb.ensureDirectory(settings.remoteFolder)
   progress(SyncProgress(0,0,0,0,"Dateien werden geprüft …"))
   val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trim('/');val settingsStore=SettingsStore(context);val speedLimitBytes=settingsStore.loadSpeedLimitKbps()*1024L;val concurrentUploads=settingsStore.loadConcurrentUploads()
-  var copied=0;var skipped=0;var alreadyCurrent=0;var failed=0;var lastError:String?=null
+  var copied=0;var skipped=0;var alreadyCurrent=0;var failed=0;var deleted=0;var lastError:String?=null
   val remoteInfo=smb.listRecursiveInfo(root).filterNot{it.path.endsWith(".galeriesync-part")}
   var remote=remoteInfo.map{it.path}.toSet()
   var remoteByKey=remoteInfo.associateBy{canonicalPath(it.path)}
@@ -38,7 +38,7 @@ class SyncService(private val context:Context){
    if(previous.isNotEmpty()){
     val deletedOnPhone=previous-localPaths
     val deletedOnNas=previous-remote
-    deletedOnPhone.intersect(remote).forEach{rel->smb.delete(root+"/"+rel)}
+    deletedOnPhone.intersect(remote).forEach{rel->smb.delete(root+"/"+rel);deleted++}
     remote=remote-deletedOnPhone
     // Android MediaStore deletion needs explicit user approval on modern Android,
     // so NAS-side deletions are not silently propagated to the phone.
@@ -77,7 +77,7 @@ class SyncService(private val context:Context){
    // and are now genuinely absent from the current phone inventory.
    val deletedKeys=previousIndex.keys-currentByKey.keys
    if(previousIndex.isNotEmpty()&&deletedKeys.isNotEmpty()){
-    deletedKeys.forEach{key->remoteByKey[key]?.let{info->runCatching{smb.delete(root+"/"+info.path)}.onFailure{t->failed++;lastError="Löschen: "+info.path+" · "+(t.message?:t.javaClass.simpleName)}}}
+    deletedKeys.forEach{key->remoteByKey[key]?.let{info->runCatching{smb.delete(root+"/"+info.path)}.onSuccess{deleted++}.onFailure{t->failed++;lastError="Löschen: "+info.path+" · "+(t.message?:t.javaClass.simpleName)}}}
    }
 
    progress(SyncProgress(alreadyCurrent,total,totalBytes-pendingBytes,totalBytes,"NAS: ${remoteInfo.size} Dateien · Pfadtreffer: $pathMatches · Größen-Treffer: $sizeMatches · ${pending.size} Uploads",alreadyCurrent,pending.size,0))
@@ -122,7 +122,7 @@ class SyncService(private val context:Context){
    val afterRemote=smb.listRecursive(root).filterNot{it.endsWith(".galeriesync-part")}.toSet()
    store.saveSyncSnapshot(settings.id,afterLocal.intersect(afterRemote))
   }
-  SyncResult(copied,skipped+if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL) alreadyCurrent else 0,failed,"SMB",lastError)
+  SyncResult(copied,skipped+if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL) alreadyCurrent else 0,failed,deleted,"SMB",lastError)
  }
  private fun canonicalPath(path:String):String{
   val normalized=path.replace('\\','/').trim('/').lowercase(java.util.Locale.ROOT)
