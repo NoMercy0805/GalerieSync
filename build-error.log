@@ -36,12 +36,11 @@ Starting a Gradle Daemon (subsequent builds will be faster)
 > Task :app:desugarDebugFileDependencies
 > Task :app:checkDebugDuplicateClasses
 > Task :app:compileDebugKotlin
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:143:264 No value passed for parameter 'onClick'.
-e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:143:266 Argument type mismatch: actual type is 'kotlin.Function0<kotlin.Unit>', but 'androidx.compose.ui.Modifier' was expected.
+e: file:///home/runner/work/GalerieSync/GalerieSync/app/src/main/java/de/galeriesync/MainActivity.kt:160:407 Syntax error: Expecting ')'.
 
 > Task :app:mergeExtDexDebug
 > Task :app:compileDebugKotlin FAILED
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790841191419.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1790966960257.json
 
 FAILURE: Build failed with an exception.
 
@@ -245,5 +244,5 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	... 2 more
 
 
-BUILD FAILED in 3m 56s
+BUILD FAILED in 3m 44s
 22 actionable tasks: 22 executed
