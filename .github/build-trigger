@@ -24,3 +24,4 @@ Build persistent per-run sync history
 Build notification icon fix
 Build per-file live verification counters
 Build restored working app icon
+Build Wake on LAN 10 minutes before sync
