@@ -15,5 +15,7 @@ data class NasSettings(
     val direction:SyncDirection = SyncDirection.PHONE_TO_NAS,
     val sourceFolders:Set<String> = emptySet(),
     val profileName:String = "",
-    val enabled:Boolean = true
+    val enabled:Boolean = true,
+    val wolEnabled:Boolean = false,
+    val wolMac:String = ""
 )
