@@ -157,7 +157,17 @@ enum class Editor{NONE,NAS,SYNC}
     Text("SMB im lokalen Netzwerk",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)
     Field("Name",s.name,{s=s.copy(name=it)})
     Field("Server / IP-Adresse",s.host,{s=s.copy(host=it)})
-    CardBox{Text("Wake on LAN",fontWeight=FontWeight.Bold);Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("NAS vor automatischem Sync aufwecken",Modifier.weight(1f));Switch(checked=s.wolEnabled,onCheckedChange={s=s.copy(wolEnabled=it)})};if(s.wolEnabled){Field("MAC-Adresse",s.wolMac,{s=s.copy(wolMac=it.uppercase().filter{ch->ch.isDigit()||ch in 'A'..'F'||ch==':'||ch=='-'}});Text("Das Magic Packet wird 10 Minuten vor der geplanten Synchronisation gesendet.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)}}
+    CardBox{
+     Text("Wake on LAN",fontWeight=FontWeight.Bold)
+     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+      Text("NAS vor automatischem Sync aufwecken",Modifier.weight(1f))
+      Switch(checked=s.wolEnabled,onCheckedChange={s=s.copy(wolEnabled=it)})
+     }
+     if(s.wolEnabled){
+      Field("MAC-Adresse",s.wolMac,{value->s=s.copy(wolMac=value.uppercase().filter{ch->ch.isDigit()||ch in 'A'..'F'||ch==':'||ch=='-'})})
+      Text("Das Magic Packet wird 10 Minuten vor der geplanten Synchronisation gesendet.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)
+     }
+    }
     Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){Box(Modifier.weight(1f)){Field("Benutzername",s.username,{s=s.copy(username=it)})};Box(Modifier.weight(1f)){Field("Passwort",s.password,{s=s.copy(password=it)},true)}}
     Button(onClick={scope.launch{busy=true;msg=runCatching{shares=withContext(Dispatchers.IO){SmbProvider(s.copy(share="")).listShares()};if(shares.isEmpty())"SMB erreichbar · Freigabe manuell eintragen" else "✓ "+shares.size+" Freigaben gefunden"}.getOrElse{"✕ "+(it.message?:it.javaClass.simpleName)};busy=false}},enabled=!busy&&s.host.isNotBlank()&&s.username.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text(if(busy)"Suche …" else "Verbindung testen & Freigaben suchen",color=if(!busy&&s.host.isNotBlank()&&s.username.isNotBlank())Color.White else Muted)}
     if(msg.isNotBlank())Text(msg,color=if(msg.startsWith("✓"))Green else Muted,fontSize=12.sp)
