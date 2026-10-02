@@ -30,7 +30,7 @@ class SyncService(private val context:Context){
   val remoteInfo=smb.listRecursiveInfo(root).filterNot{it.path.endsWith(".galeriesync-part")}
   var remote=remoteInfo.map{it.path}.toSet()
   var remoteByKey=remoteInfo.associateBy{canonicalPath(it.path)}
-  progress(SyncProgress(0,0,0,0,"Abgleich abgeschlossen · Änderungen werden vorbereitet …"))
+  progress(SyncProgress(0,local.size,0,0,"Vorhandene Dateien werden geprüft · 0 / ${local.size}",0,0,0))
   val store=SettingsStore(context)
   if(settings.direction==SyncDirection.BIDIRECTIONAL){
    val localPaths=local.map{structuredRelativePath(it.relativePath)}.toSet()
@@ -57,13 +57,10 @@ class SyncService(private val context:Context){
     val size=runCatching{smb.fileSize(root+"/"+relative)}.getOrDefault(-1L)
     val existing=if(size>=0L)SmbProvider.RemoteFileInfo(relative,size) else null
     plan+=Triple(m,relative,existing)
-    if(index==0||(index+1)%25==0||index+1==local.size){
-     val checked=index+1
-     val found=plan.count{it.third!=null}
-     val matching=plan.count{(media,_,remoteFile)->remoteFile!=null&&remoteFile.size==media.size}
-     val needsUpload=checked-matching
-     progress(SyncProgress(checked,local.size,0,0,"Vorhandene Dateien werden geprüft · $checked / ${local.size} · $matching bereits vorhanden",matching,needsUpload,0))
-    }
+    val checked=index+1
+    val matching=plan.count{(media,_,remoteFile)->remoteFile!=null&&remoteFile.size==media.size}
+    val needsUpload=checked-matching
+    progress(SyncProgress(checked,local.size,0,0,"Vorhandene Dateien werden geprüft · $checked / ${local.size} · $matching bereits vorhanden",matching,needsUpload,0))
    }
    val currentByKey=plan.associateBy{canonicalPath(it.second)}
    val pathMatches=plan.count{it.third!=null}
