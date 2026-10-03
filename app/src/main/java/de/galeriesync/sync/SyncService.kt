@@ -92,12 +92,20 @@ class SyncService(private val context:Context){
    progress(SyncProgress(0,total,0,0,"Dateien werden abgeglichen …"))
    files.forEach{p->try{downloadToMediaStore(smb,p,root);copied++;progress(SyncProgress(copied,total,0,0,"Heruntergeladen: "+p.substringAfterLast('/')))}catch(t:Throwable){failed++;lastError=t.message?:t.javaClass.simpleName;throw IOException("SMB-Verbindung unterbrochen bei "+p.substringAfterLast('/')+": "+lastError,t)}}
   }
-  if((settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL)&&failed==0){
-   val afterLocal=MediaScanner(context.contentResolver).scan(settings.sourceFolders).map{structuredRelativePath(it.relativePath)}.toSet()
+  progress(SyncProgress(0,0,0,0,"Abschluss · Vergleichsstand wird gespeichert …"))
+  if(settings.direction==SyncDirection.PHONE_TO_NAS&&failed==0){
+   // Every local file was either matched by size or uploaded and verified above.
+   // No downloads can alter this inventory in a one-way upload profile.
+   store.saveSyncSnapshot(settings.id,local.map{structuredRelativePath(it.relativePath)}.toSet())
+  }else if(settings.direction==SyncDirection.BIDIRECTIONAL&&failed==0){
+   lastScanAt=0L
+   val afterLocal=MediaScanner(context.contentResolver).scan(settings.sourceFolders){scanProgress(it,"Abschluss · Handy wird geprüft")}.map{structuredRelativePath(it.relativePath)}.toSet()
+   progress(SyncProgress(0,0,0,0,"Abschluss · NAS-Vergleich wird geprüft …"))
    val afterRemote=smb.listRecursive(root).map{it.removePrefix(root+"/")}.filterNot{it.endsWith(".galeriesync-part")}.toSet()
    val remoteKeys=afterRemote.map{canonicalPath(phonePath(it))}.toSet()
    store.saveSyncSnapshot(settings.id,afterLocal.filter{canonicalPath(it) in remoteKeys}.toSet())
   }
+  progress(SyncProgress(0,0,0,0,"Abschluss · Verlauf und Verbindung werden abgeschlossen …"))
   SyncResult(copied,skipped+if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL) alreadyCurrent else 0,failed,"SMB",lastError,deleted)
  }
  private fun canonicalPath(path:String)=canonicalMediaPath(path)

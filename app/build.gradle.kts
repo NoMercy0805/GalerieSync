@@ -6,7 +6,7 @@ plugins {
 android {
     namespace = "de.galeriesync"
     compileSdk = 35
-    defaultConfig { applicationId = "com.schiwy.galeriesync"; minSdk = 26; targetSdk = 35; versionCode = 9; versionName = "0.4.3" }
+    defaultConfig { applicationId = "com.schiwy.galeriesync"; minSdk = 26; targetSdk = 35; versionCode = 10; versionName = "0.4.4" }
     signingConfigs {
         getByName("debug") {
             storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
