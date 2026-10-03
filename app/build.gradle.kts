@@ -6,7 +6,7 @@ plugins {
 android {
     namespace = "de.galeriesync"
     compileSdk = 35
-    defaultConfig { applicationId = "com.schiwy.galeriesync"; minSdk = 26; targetSdk = 35; versionCode = 6; versionName = "0.4.0" }
+    defaultConfig { applicationId = "com.schiwy.galeriesync"; minSdk = 26; targetSdk = 35; versionCode = 7; versionName = "0.4.1" }
     signingConfigs {
         getByName("debug") {
             storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
@@ -23,6 +23,7 @@ android {
     kotlinOptions { jvmTarget = "17" }
 }
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.activity:activity-compose:1.10.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
@@ -39,3 +40,4 @@ dependencies {
     implementation("com.wireguard.android:tunnel:1.0.20230706")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
+

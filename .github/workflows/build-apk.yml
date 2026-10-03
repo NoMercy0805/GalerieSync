@@ -46,7 +46,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          gradle assembleDebug --stacktrace 2>&1 | tee build-output.log
+          gradle testDebugUnitTest assembleDebug --stacktrace 2>&1 | tee build-output.log
         continue-on-error: true
 
       - name: Commit build log on failure
@@ -86,3 +86,4 @@ jobs:
           name: GalerieSync-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+

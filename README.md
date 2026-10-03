@@ -1,25 +1,13 @@
-# GalerieSync 0.1.0 – erste Testversion
+# GalerieSync
 
-Android-App für die Synchronisation von Fotos und Videos mit einem NAS über SMB.
+Android-App für Fotos und Videos auf einem NAS über SMB.
 
-## Enthalten
-- Handy → NAS
-- NAS → Handy
-- bidirektional (konservativ: keine automatischen Löschungen)
-- SMB/Windows-Shares, z. B. UGREEN NAS
-- lokale Medien aus MediaStore
-- Zielordner auf dem NAS
-- WLAN-only Option
-- sichere Speicherung des Passworts via Android Keystore/EncryptedSharedPreferences
-- manueller Sync
-- Hintergrund-Sync über WorkManager
-- GitHub Actions baut automatisch `app-debug.apk`
+## Löschabgleich
+- **Handy → NAS:** Der Zielordner spiegelt die ausgewählten Handy-Ordner. Dateien, die dort auf dem Handy fehlen, werden auf dem NAS gelöscht. Abgewählte Ordner bleiben erhalten.
+- **Bidirektional:** Auf dem Handy gelöschte Dateien werden auf dem NAS gelöscht, wenn sie im vorherigen erfolgreichen Abgleich auf beiden Seiten vorhanden waren. Der erste Lauf erstellt diesen Vergleichsstand; ohne vorherigen Stand lässt sich eine Löschung nicht sicher von einer neuen NAS-Datei unterscheiden.
+- **NAS → Handy:** Kopiert Dateien vom NAS. Löschungen auf dem NAS werden wegen der erforderlichen Android-Freigabe nicht automatisch auf das Handy übertragen.
+- Löschungen werden erst nach erfolgreicher SMB-Löschung und Prüfung im Ergebnis gezählt. Der Hintergrund-Sync speichert Ergebnis und Zeit im Profilverlauf.
+- Nur vollständiger Foto- und Videozugriff erlaubt den Abgleich. Bei eingeschränkter Berechtigung oder fehlgeschlagener Medienabfrage wird abgebrochen.
 
-## Test
-1. APK installieren.
-2. Medienberechtigung erlauben.
-3. NAS-Host/IP, Share, Benutzer und Passwort eintragen.
-4. Zielordner festlegen, z. B. `GalerieSync`.
-5. Verbindung testen und anschließend synchronisieren.
-
-Die erste Version spiegelt absichtlich keine Löschungen.
+## Prüfung
+`gradle testDebugUnitTest assembleDebug` führt die Regressionstests für den Löschplan aus und baut die APK gemeinsam. Die NAS-Verbindung selbst muss mit dem konkreten Gerät und SMB-Benutzer geprüft werden.
