@@ -23,27 +23,38 @@ class SyncService(private val context:Context){
   requireCompleteMediaAccess()
   require(settings.host.isNotBlank()&&settings.share.isNotBlank()){"NAS-Adresse und Freigabe fehlen."};val smb=SmbProvider(settings);var connected=false;var connectError:Throwable?=null;repeat(5){if(!connected){runCatching{smb.test()}.onSuccess{connected=true}.onFailure{connectError=it};if(!connected)kotlinx.coroutines.delay(1000)}};if(!connected)throw IOException("NAS nach VPN-Aufbau nicht erreichbar: "+(connectError?.message?:"SMB-Verbindung fehlgeschlagen"),connectError);smb.ensureDirectory(settings.remoteFolder)
   progress(SyncProgress(0,0,0,0,"Dateien werden geprüft …"))
-  val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders);val root=settings.remoteFolder.trim('/');val speedLimitBytes=SettingsStore(context).loadSpeedLimitKbps()*1024L
+  var lastScanAt=0L
+  fun scanProgress(count:Int,label:String){val now=System.nanoTime();if(count==1||now-lastScanAt>=500_000_000L){lastScanAt=now;progress(SyncProgress(count,0,0,0,"$label · $count Dateien geprüft"))}}
+  val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders){scanProgress(it,"Handy wird gelesen")};val root=settings.remoteFolder.trim('/');val speedLimitBytes=SettingsStore(context).loadSpeedLimitKbps()*1024L
   var copied=0;var deleted=0;var skipped=0;var alreadyCurrent=0;var failed=0;var lastError:String?=null
-  val remoteInfo=smb.listRecursiveInfo(root).map{info->SmbProvider.RemoteFileInfo(info.path.removePrefix(root+"/").trimStart('/'),info.size)}.filterNot{it.path.endsWith(".galeriesync-part")}
+  lastScanAt=0L
+  val remoteInfo=smb.listRecursiveInfo(root){scanProgress(it,"NAS wird gelesen")}.map{info->SmbProvider.RemoteFileInfo(info.path.removePrefix(root+"/").trimStart('/'),info.size)}.filterNot{it.path.endsWith(".galeriesync-part")}
   var remote=remoteInfo.map{it.path}.toSet()
   var remoteByKey=remoteInfo.associateBy{canonicalPath(it.path)}
-  progress(SyncProgress(0,0,0,0,"Abgleich abgeschlossen · Änderungen werden vorbereitet …"))
+  progress(SyncProgress(0,local.size,0,0,"Dateien werden abgeglichen …"))
   val store=SettingsStore(context)
   if(settings.direction==SyncDirection.PHONE_TO_NAS||settings.direction==SyncDirection.BIDIRECTIONAL){
    val localPaths=local.map{structuredRelativePath(it.relativePath)}.toSet()
    val obsolete=nasDeletionPlan(localPaths,remote,store.loadSyncSnapshot(settings.id),settings.sourceFolders,settings.direction==SyncDirection.PHONE_TO_NAS)
-   obsolete.forEach{rel->
-    progress(SyncProgress(0,0,0,0,"Löschen auf NAS: "+rel.substringAfterLast('/')))
+   obsolete.forEachIndexed{index,rel->
+    progress(SyncProgress(index,obsolete.size,0,0,"NAS-Löschabgleich · $index von ${obsolete.size} · "+rel.substringAfterLast('/')))
     if(smb.delete(root+"/"+rel))deleted++
    }
+   if(obsolete.isNotEmpty())progress(SyncProgress(obsolete.size,obsolete.size,0,0,"NAS-Löschabgleich abgeschlossen · $deleted gelöscht"))
    val obsoleteKeys=obsolete.map{canonicalPath(it)}.toSet()
    remote=remote.filter{canonicalPath(it) !in obsoleteKeys}.toSet()
    remoteByKey=remoteByKey.filterKeys{it !in obsoleteKeys}
-   val pending=local.filter{m->val relative=structuredRelativePath(m.relativePath);val existing=remoteByKey[canonicalPath(relative)];existing==null||existing.size!=m.size}
+   val pending=mutableListOf<LocalMedia>()
+   lastScanAt=0L
+   local.forEachIndexed{index,m->
+    val relative=structuredRelativePath(m.relativePath);val existing=remoteByKey[canonicalPath(relative)]
+    if(existing==null||existing.size!=m.size)pending+=m
+    val checked=index+1;val now=System.nanoTime()
+    if(checked==1||checked==local.size||now-lastScanAt>=500_000_000L){lastScanAt=now;progress(SyncProgress(checked,local.size,0,0,"Abgleich · $checked von ${local.size} Dateien geprüft"))}
+   }
    alreadyCurrent=local.size-pending.size
    val total=local.size
-   val totalBytes=local.sumOf{it.size};var processedBytes=local.filterNot{it in pending}.sumOf{it.size}
+   val totalBytes=local.sumOf{it.size};var processedBytes=totalBytes-pending.sumOf{it.size}
    progress(SyncProgress(alreadyCurrent,total,processedBytes,totalBytes,if(pending.isEmpty())"Alles aktuell" else "$alreadyCurrent von $total bereits vorhanden · ${pending.size} ausstehend"))
    val progressMutex=Mutex();val uploadSlots=Semaphore(2);var lastProgressAt=0L
    pending.map{m->async{
