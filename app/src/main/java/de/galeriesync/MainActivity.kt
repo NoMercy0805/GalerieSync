@@ -9,6 +9,7 @@ import android.app.NotificationManager
 import androidx.core.app.NotificationCompat
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -55,7 +56,30 @@ private val Navy=Color(0xFF071A27);private val Panel=Color(0xFF102A3A);private v
 private val Blue=Color(0xFF3DA5FF);private val Green=Color(0xFF42D77D);private val Muted=Color(0xFF9CB1BF)
 private val Scheme=darkColorScheme(primary=Blue,onPrimary=Color.White,background=Navy,surface=Panel,surfaceVariant=Panel2,onBackground=Color.White,onSurface=Color.White,onSurfaceVariant=Color.White,outline=Color(0xFF345568))
 private val LightScheme=lightColorScheme(primary=Color(0xFF0878C9),onPrimary=Color.White,background=Color(0xFFF3F7FA),surface=Color.White,surfaceVariant=Color(0xFFE3EEF5),onBackground=Color(0xFF10212C),onSurface=Color(0xFF10212C),onSurfaceVariant=Color(0xFF405665),outline=Color(0xFF78909C))
-class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);setContent{val store=remember{SettingsStore(this)};var mode by remember{mutableStateOf(store.loadThemeMode())};val systemDark=androidx.compose.foundation.isSystemInDarkTheme();val dark=mode=="DARK"||(mode=="SYSTEM"&&systemDark);SideEffect{window.statusBarColor=if(dark)android.graphics.Color.rgb(7,26,39) else android.graphics.Color.rgb(243,247,250);window.navigationBarColor=if(dark)android.graphics.Color.rgb(9,31,45) else android.graphics.Color.WHITE;WindowCompat.getInsetsController(window,window.decorView).apply{isAppearanceLightStatusBars=!dark;isAppearanceLightNavigationBars=!dark}};CompositionLocalProvider(LocalThemeMode provides mode,LocalSetThemeMode provides{v->mode=v;store.saveThemeMode(v)}){MaterialTheme(colorScheme=if(dark)Scheme else LightScheme){App()}}}}}
+class MainActivity:ComponentActivity(){
+ override fun onCreate(savedInstanceState:Bundle?){
+  super.onCreate(savedInstanceState)
+  enableEdgeToEdge()
+  setContent{
+   val store=remember{SettingsStore(this)}
+   var mode by remember{mutableStateOf(store.loadThemeMode())}
+   val systemDark=androidx.compose.foundation.isSystemInDarkTheme()
+   val dark=mode=="DARK"||(mode=="SYSTEM"&&systemDark)
+   SideEffect{
+    window.statusBarColor=if(dark)android.graphics.Color.rgb(7,26,39) else android.graphics.Color.rgb(243,247,250)
+    window.navigationBarColor=if(dark)android.graphics.Color.rgb(9,31,45) else android.graphics.Color.WHITE
+    WindowCompat.getInsetsController(window,window.decorView).apply{isAppearanceLightStatusBars=!dark;isAppearanceLightNavigationBars=!dark}
+   }
+   CompositionLocalProvider(LocalThemeMode provides mode,LocalSetThemeMode provides{v->mode=v;store.saveThemeMode(v)}){
+    MaterialTheme(colorScheme=if(dark)Scheme else LightScheme){
+     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)){
+      Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)){App()}
+     }
+    }
+   }
+  }
+ }
+}
 private val LocalThemeMode=compositionLocalOf{"SYSTEM"}
 private val LocalSetThemeMode=compositionLocalOf<(String)->Unit>{{}}
 enum class Tab(val label:String,val icon:String){GALLERY("Galerie","▦"),SYNC("Synchronisation","↻"),NAS("NAS","▣")}
@@ -87,7 +111,7 @@ enum class Editor{NONE,NAS,SYNC}
  if(editor==Editor.SYNC){SyncEditor(editing,nas,{editor=Editor.NONE},{saveProfile(it);editor=Editor.NONE});return}
  if(settingsPage!=null){SettingsScreen(if(settingsPage=="ROOT")null else settingsPage,{settingsPage=it?:"ROOT"},{settingsPage=null});return}
  
- Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={Row(Modifier.fillMaxWidth().padding(top=34.dp,start=28.dp,end=28.dp,bottom=10.dp),horizontalArrangement=Arrangement.End){IconButton(onClick={settingsPage="ROOT"},modifier=Modifier.offset(x=(-4).dp)){Text("⚙",fontSize=24.sp,color=MaterialTheme.colorScheme.onSurface)}}},bottomBar={NavigationBar(containerColor=MaterialTheme.colorScheme.surface){Tab.entries.forEach{t->NavigationBarItem(selected=tab==t,onClick={tab=t},icon={Text(t.icon,fontSize=20.sp)},label={Text(t.label,fontSize=10.sp)})}}}){pad->
+ Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={Row(Modifier.fillMaxWidth().padding(top=10.dp,start=28.dp,end=28.dp,bottom=10.dp),horizontalArrangement=Arrangement.End){IconButton(onClick={settingsPage="ROOT"},modifier=Modifier.offset(x=(-4).dp)){Text("⚙",fontSize=24.sp,color=MaterialTheme.colorScheme.onSurface)}}},bottomBar={NavigationBar(containerColor=MaterialTheme.colorScheme.surface){Tab.entries.forEach{t->NavigationBarItem(selected=tab==t,onClick={tab=t},icon={Text(t.icon,fontSize=20.sp)},label={Text(t.label,fontSize=10.sp)})}}}){pad->
   Box(Modifier.padding(pad).fillMaxSize()){when(tab){
    Tab.GALLERY->de.galeriesync.gallery.NasGalleryScreen(profiles)
    Tab.NAS->NasList(nas,nasTestStates,nasStorage,nasStorageUpdated,{editing=null;editor=Editor.NAS},{editing=it;editor=Editor.NAS},{deleteNas(it)},{n->scope.launch{status="NAS wird aktualisiert …";val result=runCatching{withContext(Dispatchers.IO){val smb=SmbProvider(n);smb.test();val info=smb.storageInfo();nasStorage=nasStorage+(n.id to info);store.saveNasStorage(n.id,info.total,info.free);val now=System.currentTimeMillis();nasStorageUpdated=nasStorageUpdated+(n.id to now);store.saveNasStorageUpdated(n.id,now)}};nasTestStates=nasTestStates+(n.id to result.isSuccess);status=result.fold({"NAS-Speicher aktualisiert"},{"Fehler · "+(it.message?:"Unbekannt")})}})
@@ -218,7 +242,7 @@ enum class Editor{NONE,NAS,SYNC}
   "Daten & Speicher"->CardBox{Text("Lokale Daten",color=Color.White,fontWeight=FontWeight.Bold);Text("NAS-Zugangsdaten werden verschlüsselt gespeichert. Spiegel-Profile können entfernte Dateien auf der Gegenseite ebenfalls entfernen.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
   else->CardBox{Text("GalerieSync",color=Color.White,fontWeight=FontWeight.Bold,fontSize=20.sp);Text("Version 0.4.0",color=MaterialTheme.colorScheme.onSurfaceVariant);Text("Fotos und Videos zwischen Smartphone und NAS synchronisieren.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
  }}};return}
- Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)){Row(Modifier.fillMaxWidth().padding(start=20.dp,end=20.dp,top=34.dp,bottom=18.dp),verticalAlignment=Alignment.CenterVertically){Text("Einstellungen",fontSize=25.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground,modifier=Modifier.weight(1f));IconButton(onClick=onClose){Text("✕",fontSize=22.sp,color=MaterialTheme.colorScheme.onBackground)}};Column(Modifier.padding(horizontal=20.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
+ Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)){Row(Modifier.fillMaxWidth().padding(start=20.dp,end=20.dp,top=10.dp,bottom=18.dp),verticalAlignment=Alignment.CenterVertically){Text("Einstellungen",fontSize=25.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground,modifier=Modifier.weight(1f));IconButton(onClick=onClose){Text("✕",fontSize=22.sp,color=MaterialTheme.colorScheme.onBackground)}};Column(Modifier.padding(horizontal=20.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
   SettingsRow("⚙","Allgemein","Design, Benachrichtigungen, Sprache"){open("Allgemein")}
   SettingsRow("◉","WLAN & VPN","Vertrauenswürdige WLANs · VPN-Fallback"){open("WLAN-Einstellungen")}
   SettingsRow("◷","Automatische Synchronisation","Zeitplan · Hintergrund"){open("Automatische Synchronisation")}
