@@ -1,1 +1,1 @@
-GalerieSync 0.4.4: full-screen gallery viewer + delete offline previews
+GalerieSync 0.4.4: gallery previews continue in foreground background worker
