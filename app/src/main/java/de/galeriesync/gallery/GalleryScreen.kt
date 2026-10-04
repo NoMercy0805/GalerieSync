@@ -3,6 +3,7 @@ package de.galeriesync.gallery
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +18,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -29,7 +32,7 @@ import androidx.work.*
 import coil.compose.AsyncImage
 import de.galeriesync.data.NasSettings
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -40,6 +43,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
     val context=LocalContext.current
     val repo=remember{GalleryRepository(context)}
     val scope=rememberCoroutineScope()
+    val workManager=remember{WorkManager.getInstance(context)}
     var selection by remember{mutableStateOf(repo.loadSelection())}
     var media by remember{mutableStateOf(emptyList<GalleryMedia>())}
     var folder by remember{mutableStateOf("")}
@@ -58,39 +62,53 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
         progressTotal=progress.second
     }
 
+    fun applyWorkerProgress(info:WorkInfo){
+        info.progress.getString(GalleryCacheWorker.KEY_MESSAGE)?.let{status=it}
+        val pTotal=info.progress.getInt(GalleryCacheWorker.KEY_TOTAL,0)
+        if(pTotal>0){
+            progressTotal=pTotal
+            progressDone=info.progress.getInt(GalleryCacheWorker.KEY_DONE,progressDone)
+        }
+    }
+
     fun startRefresh(){
         if(repo.loadSelection()==null){
             pickerOpen=true
             return
         }
         val request=OneTimeWorkRequestBuilder<GalleryCacheWorker>().build()
-        WorkManager.getInstance(context).enqueueUniqueWork(GalleryCacheWorker.UNIQUE_WORK,ExistingWorkPolicy.REPLACE,request)
+        workManager.enqueueUniqueWork(GalleryCacheWorker.UNIQUE_WORK,ExistingWorkPolicy.REPLACE,request)
         working=true
         status="NAS-Ordner wird eingelesen …"
-        scope.launch{
-            WorkManager.getInstance(context).getWorkInfoByIdFlow(request.id).filterNotNull().takeWhile{info->
-                info.progress.getString(GalleryCacheWorker.KEY_MESSAGE)?.let{status=it}
-                val pTotal=info.progress.getInt(GalleryCacheWorker.KEY_TOTAL,0)
-                if(pTotal>0){
-                    progressTotal=pTotal
-                    progressDone=info.progress.getInt(GalleryCacheWorker.KEY_DONE,progressDone)
-                }
-                if(info.state.isFinished){
-                    status=info.outputData.getString(GalleryCacheWorker.KEY_MESSAGE)?:status
-                    val outTotal=info.outputData.getInt(GalleryCacheWorker.KEY_TOTAL,0)
-                    if(outTotal>0){
-                        progressTotal=outTotal
-                        progressDone=info.outputData.getInt(GalleryCacheWorker.KEY_DONE,progressDone)
-                    }
-                }
-                !info.state.isFinished
-            }.collect{}
-            reloadLocal()
-            working=false
-        }
     }
 
     LaunchedEffect(selection){reloadLocal()}
+
+    LaunchedEffect(Unit){
+        var sawActive=false
+        while(true){
+            val infos=withContext(Dispatchers.IO){
+                runCatching{workManager.getWorkInfosForUniqueWork(GalleryCacheWorker.UNIQUE_WORK).get()}.getOrDefault(emptyList())
+            }
+            val active=infos.firstOrNull{it.state==WorkInfo.State.RUNNING||it.state==WorkInfo.State.ENQUEUED||it.state==WorkInfo.State.BLOCKED}
+            if(active!=null){
+                if(!sawActive||media.isEmpty())reloadLocal()
+                sawActive=true
+                working=true
+                applyWorkerProgress(active)
+                if(status.isBlank())status="Galerie-Aktualisierung läuft im Hintergrund …"
+            }else{
+                if(sawActive){
+                    val finished=infos.firstOrNull{it.state==WorkInfo.State.SUCCEEDED}
+                    finished?.outputData?.getString(GalleryCacheWorker.KEY_MESSAGE)?.let{status=it}
+                    reloadLocal()
+                }
+                sawActive=false
+                working=false
+            }
+            delay(750)
+        }
+    }
 
     val activeProfile=selection?.sourceId?.let{id->profiles.firstOrNull{it.id==id}}
     val activeTitle=activeProfile?.let{p->p.profileName.ifBlank{p.name.ifBlank{p.share.ifBlank{p.host}}}}?:"NAS"
@@ -133,6 +151,9 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
         if(progressTotal>0){
             LinearProgressIndicator(progress={progressDone.toFloat()/progressTotal.coerceAtLeast(1)},modifier=Modifier.fillMaxWidth().padding(top=6.dp))
             Text("$progressDone Bilder fertig · $openCount offen · $progressTotal gesamt",Modifier.padding(horizontal=18.dp,vertical=5.dp),fontSize=12.sp,fontWeight=FontWeight.SemiBold,color=MaterialTheme.colorScheme.onSurface)
+        }
+        if(working){
+            Text("Aktualisierung läuft im Hintergrund weiter",Modifier.padding(horizontal=18.dp,vertical=2.dp),fontSize=11.sp,fontWeight=FontWeight.SemiBold,color=MaterialTheme.colorScheme.primary)
         }
         if(status.isNotBlank())Text(status,Modifier.padding(horizontal=18.dp,vertical=4.dp),fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)
 
@@ -353,6 +374,9 @@ private fun MediaDialog(item:GalleryMedia,repo:GalleryRepository,onClose:()->Uni
     }
     val pagerState=rememberPagerState(initialPage=initialPage,pageCount={pages.size})
     val currentItem=pages[pagerState.currentPage.coerceIn(0,pages.lastIndex)]
+    var zoomActive by remember{mutableStateOf(false)}
+
+    LaunchedEffect(pagerState.currentPage){zoomActive=false}
 
     Dialog(onDismissRequest=onClose,properties=DialogProperties(usePlatformDefaultWidth=false)){
         Box(Modifier.fillMaxSize().background(Color.Black)){
@@ -366,11 +390,13 @@ private fun MediaDialog(item:GalleryMedia,repo:GalleryRepository,onClose:()->Uni
                     }
                 }
             }else{
-                HorizontalPager(state=pagerState,modifier=Modifier.fillMaxSize()) { page->
+                HorizontalPager(state=pagerState,modifier=Modifier.fillMaxSize(),userScrollEnabled=!zoomActive){page->
                     val pageItem=pages[page]
                     val preview=repo.previewFile(pageItem)
                     if(preview.exists()){
-                        AsyncImage(model=preview,contentDescription=pageItem.name,modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Fit)
+                        ZoomablePreview(pageItem,preview.path,page==pagerState.currentPage){active->
+                            if(page==pagerState.currentPage)zoomActive=active
+                        }
                     }else{
                         Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
                             Column(horizontalAlignment=Alignment.CenterHorizontally){
@@ -396,9 +422,55 @@ private fun MediaDialog(item:GalleryMedia,repo:GalleryRepository,onClose:()->Uni
                 Modifier.fillMaxWidth().align(Alignment.BottomCenter).background(Color.Black.copy(alpha=0.45f)).navigationBarsPadding().padding(horizontal=18.dp,vertical=12.dp)
             ){
                 Text(currentItem.relativePath(),fontSize=11.sp,color=Color.White.copy(alpha=0.8f),maxLines=2,overflow=TextOverflow.Ellipsis)
-                if(!currentItem.video)Text("Nach links/rechts wischen für weitere Bilder · verkleinerte Offline-Vorschau · Original wird nie geladen",fontSize=10.sp,color=Color.White.copy(alpha=0.65f))
+                if(!currentItem.video)Text("Links/rechts wischen · mit zwei Fingern zoomen · verkleinerte Offline-Vorschau · Original wird nie geladen",fontSize=10.sp,color=Color.White.copy(alpha=0.65f))
             }
         }
+    }
+}
+
+@Composable
+private fun ZoomablePreview(item:GalleryMedia,previewPath:String,isCurrent:Boolean,onZoomActive:(Boolean)->Unit){
+    var scale by remember(item.sourceId,item.path){mutableFloatStateOf(1f)}
+    var offsetX by remember(item.sourceId,item.path){mutableFloatStateOf(0f)}
+    var offsetY by remember(item.sourceId,item.path){mutableFloatStateOf(0f)}
+
+    LaunchedEffect(isCurrent){
+        if(!isCurrent){
+            scale=1f
+            offsetX=0f
+            offsetY=0f
+            onZoomActive(false)
+        }
+    }
+
+    Box(
+        Modifier.fillMaxSize().pointerInput(item.sourceId,item.path){
+            detectTransformGestures{_,pan,zoom,_->
+                val newScale=(scale*zoom).coerceIn(1f,5f)
+                scale=newScale
+                if(newScale<=1.01f){
+                    offsetX=0f
+                    offsetY=0f
+                }else{
+                    offsetX+=pan.x
+                    offsetY+=pan.y
+                }
+                onZoomActive(newScale>1.01f)
+            }
+        },
+        contentAlignment=Alignment.Center
+    ){
+        AsyncImage(
+            model=previewPath,
+            contentDescription=item.name,
+            modifier=Modifier.fillMaxSize().graphicsLayer{
+                scaleX=scale
+                scaleY=scale
+                translationX=offsetX
+                translationY=offsetY
+            },
+            contentScale=ContentScale.Fit
+        )
     }
 }
 
