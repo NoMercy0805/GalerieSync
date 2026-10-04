@@ -116,8 +116,6 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
         }
     }
 
-    val activeProfile=selection?.sourceId?.let{id->profiles.firstOrNull{it.id==id}}
-    val activeTitle=activeProfile?.let{p->p.profileName.ifBlank{p.name.ifBlank{p.share.ifBlank{p.host}}}}?:"NAS"
     val contents=remember(media,folder){folderContents(media,folder)}
     val openCount=(progressTotal-progressDone).coerceAtLeast(0)
 
@@ -136,6 +134,11 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
                     IconButton(onClick={galleryMenuOpen=true}){Text("⋮",fontSize=25.sp,color=MaterialTheme.colorScheme.onSurface)}
                     DropdownMenu(expanded=galleryMenuOpen,onDismissRequest={galleryMenuOpen=false}){
                         DropdownMenuItem(
+                            text={Text(if(working)"Aktualisierung läuft" else "Aktualisieren")},
+                            onClick={galleryMenuOpen=false;startRefresh()},
+                            enabled=!working
+                        )
+                        DropdownMenuItem(
                             text={Text("Ordner ändern")},
                             onClick={galleryMenuOpen=false;pickerOpen=true},
                             enabled=profiles.isNotEmpty()
@@ -152,23 +155,9 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
             }
         }
 
-        if(selection!=null){
-            Surface(Modifier.fillMaxWidth().padding(horizontal=16.dp),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface){
-                Row(Modifier.fillMaxWidth().padding(10.dp),verticalAlignment=Alignment.CenterVertically){
-                    Text("📁",fontSize=25.sp)
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)){
-                        Text(activeTitle,fontWeight=FontWeight.Bold,maxLines=1,overflow=TextOverflow.Ellipsis)
-                        Text("/"+selection!!.folder.ifBlank{""},fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)
-                    }
-                    TextButton(onClick={startRefresh()},enabled=!working){Text(if(working)"Läuft …" else "Aktualisieren")}
-                }
-            }
-        }
-
         if(working&&progressTotal==0)LinearProgressIndicator(Modifier.fillMaxWidth())
         if(progressTotal>0){
-            LinearProgressIndicator(progress={progressDone.toFloat()/progressTotal.coerceAtLeast(1)},modifier=Modifier.fillMaxWidth().padding(top=6.dp))
+            LinearProgressIndicator(progress={progressDone.toFloat()/progressTotal.coerceAtLeast(1)},modifier=Modifier.fillMaxWidth().padding(top=2.dp))
             Text("$progressDone Bilder fertig · $openCount offen · $progressTotal gesamt",Modifier.padding(horizontal=18.dp,vertical=5.dp),fontSize=12.sp,fontWeight=FontWeight.SemiBold,color=MaterialTheme.colorScheme.onSurface)
         }
         if(working){
