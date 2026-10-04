@@ -38,9 +38,9 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("eu.agno3.jcifs:jcifs-ng:2.1.10")
     implementation("com.wireguard.android:tunnel:1.0.20230706")
-    implementation("androidx.media3:media3-common:1.11.0")
-    implementation("androidx.media3:media3-effect:1.11.0")
-    implementation("androidx.media3:media3-transformer:1.11.0")
+    implementation("androidx.media3:media3-common:1.8.0")
+    implementation("androidx.media3:media3-effect:1.8.0")
+    implementation("androidx.media3:media3-transformer:1.8.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
 
