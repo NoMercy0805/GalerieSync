@@ -15,6 +15,8 @@ import java.security.MessageDigest
 import kotlin.math.max
 import kotlin.math.roundToInt
 
+data class GallerySelection(val sourceId:String,val folder:String)
+
 data class GalleryMedia(
     val sourceId:String,
     val sourceTitle:String,
@@ -42,11 +44,16 @@ data class GalleryIndexResult(
     val errors:List<String>
 )
 
+data class GalleryCacheResult(val done:Int,val total:Int,val failed:Int)
+
 class GalleryRepository(private val context:Context){
     companion object{
         private val lock=Any()
         private const val PREVIEW_MAX=1280
         private const val PREVIEW_QUALITY=78
+        private const val PREFS="gallery_settings"
+        private const val KEY_SOURCE="source_id"
+        private const val KEY_FOLDER="folder"
         private val imageExtensions=setOf("jpg","jpeg","png","webp","heic","heif","avif","gif","bmp")
         private val videoExtensions=setOf("mp4","mov","mkv","webm","m4v","3gp")
     }
@@ -54,8 +61,19 @@ class GalleryRepository(private val context:Context){
     private val cacheRoot=File(context.filesDir,"nas_gallery").apply{mkdirs()}
     private val previewRoot=File(cacheRoot,"previews").apply{mkdirs()}
     private val indexFile=File(cacheRoot,"index.json")
+    private val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
 
-    fun loadIndex():List<GalleryMedia> = synchronized(lock){
+    fun loadSelection():GallerySelection?{
+        val source=prefs.getString(KEY_SOURCE,"").orEmpty()
+        if(source.isBlank())return null
+        return GallerySelection(source,prefs.getString(KEY_FOLDER,"").orEmpty().trim('/'))
+    }
+
+    fun saveSelection(selection:GallerySelection){
+        prefs.edit().putString(KEY_SOURCE,selection.sourceId).putString(KEY_FOLDER,selection.folder.trim('/')).apply()
+    }
+
+    private fun loadRawIndex():List<GalleryMedia> = synchronized(lock){
         if(!indexFile.exists())return@synchronized emptyList()
         runCatching{
             val a=JSONArray(indexFile.readText())
@@ -71,6 +89,12 @@ class GalleryRepository(private val context:Context){
                 ).takeIf{it.sourceId.isNotBlank()&&it.path.isNotBlank()}
             }
         }.getOrDefault(emptyList())
+    }
+
+    fun loadIndex():List<GalleryMedia>{
+        val selection=loadSelection()?:return emptyList()
+        val root=selection.folder.trim('/')
+        return loadRawIndex().filter{it.sourceId==selection.sourceId&&it.remoteRoot.trim('/')==root}
     }
 
     private fun saveIndex(items:List<GalleryMedia>)=synchronized(lock){
@@ -92,60 +116,60 @@ class GalleryRepository(private val context:Context){
     }
 
     fun refreshIndex(profiles:List<NasSettings>):GalleryIndexResult{
-        val usable=profiles.filter{it.host.isNotBlank()&&it.share.isNotBlank()}
-        val configuredIds=usable.map{it.id}.toSet()
-        val merged=loadIndex().filter{it.sourceId in configuredIds}.toMutableList()
-        val refreshed=mutableSetOf<String>()
-        val errors=mutableListOf<String>()
-        usable.forEach{p->
-            val title=p.profileName.ifBlank{p.name.ifBlank{p.remoteFolder.ifBlank{p.host}}}
-            val root=p.remoteFolder.trim('/')
-            runCatching{
-                val smb=SmbProvider(p)
-                smb.listRecursiveInfo(root).mapNotNull{f->
-                    val ext=f.path.substringAfterLast('.',"").lowercase()
-                    when{
-                        ext in imageExtensions->GalleryMedia(p.id,title,root,f.path,f.size,false)
-                        ext in videoExtensions->GalleryMedia(p.id,title,root,f.path,f.size,true)
-                        else->null
-                    }
+        val selection=loadSelection()
+            ?:return GalleryIndexResult(emptyList(),emptySet(),listOf("Kein Galerie-Ordner ausgewählt"))
+        val profile=profiles.firstOrNull{it.id==selection.sourceId}
+            ?:return GalleryIndexResult(loadIndex(),emptySet(),listOf("Die ausgewählte Galerie-Quelle ist nicht mehr vorhanden"))
+        val title=profile.profileName.ifBlank{profile.name.ifBlank{profile.share.ifBlank{profile.host}}}
+        val root=selection.folder.trim('/')
+        return runCatching{
+            val smb=SmbProvider(profile)
+            val found=smb.listRecursiveInfo(root).mapNotNull{f->
+                val ext=f.path.substringAfterLast('.',"").lowercase()
+                when{
+                    ext in imageExtensions->GalleryMedia(profile.id,title,root,f.path,f.size,false)
+                    ext in videoExtensions->GalleryMedia(profile.id,title,root,f.path,f.size,true)
+                    else->null
                 }
-            }.onSuccess{found->
-                merged.removeAll{it.sourceId==p.id}
-                merged.addAll(found)
-                refreshed+=p.id
-            }.onFailure{e->
-                errors+="$title: "+(e.message?:e.javaClass.simpleName)
-            }
+            }.distinctBy{it.sourceId+"|"+it.path}.sortedBy{it.path.lowercase()}
+            saveIndex(found)
+            pruneObsoletePreviews(found)
+            GalleryIndexResult(found,setOf(profile.id),emptyList())
+        }.getOrElse{e->
+            GalleryIndexResult(loadIndex(),emptySet(),listOf("$title: "+(e.message?:e.javaClass.simpleName)))
         }
-        val result=merged.distinctBy{it.sourceId+"|"+it.path}.sortedWith(compareBy<GalleryMedia>({it.sourceTitle.lowercase()},{it.path.lowercase()}))
-        saveIndex(result)
-        pruneObsoletePreviews(result)
-        return GalleryIndexResult(result,refreshed,errors)
     }
 
     fun previewFile(item:GalleryMedia):File=File(previewRoot,previewName(item))
+
+    fun previewProgress(items:List<GalleryMedia>):Pair<Int,Int>{
+        val images=items.filterNot{it.video}
+        return images.count{previewFile(it).exists()} to images.size
+    }
 
     suspend fun cacheMissingPreviews(
         profiles:List<NasSettings>,
         items:List<GalleryMedia>,
         allowedSources:Set<String>,
         onProgress:suspend (done:Int,total:Int,name:String)->Unit
-    ):Int{
+    ):GalleryCacheResult{
         val profileById=profiles.associateBy{it.id}
         val providers=mutableMapOf<String,SmbProvider>()
-        val missing=items.filter{!it.video&&it.sourceId in allowedSources&&!previewFile(it).exists()}
+        val images=items.filter{!it.video&&it.sourceId in allowedSources}
+        val total=images.size
+        var done=images.count{previewFile(it).exists()}
         var failed=0
-        missing.forEachIndexed{index,item->
+        onProgress(done,total,"")
+        images.filterNot{previewFile(it).exists()}.forEach{item->
             val p=profileById[item.sourceId]
             val ok=if(p==null)false else runCatching{
                 val smb=providers.getOrPut(item.sourceId){SmbProvider(p)}
                 createPreview(smb,item.path,previewFile(item))
             }.getOrDefault(false)
-            if(!ok)failed++
-            onProgress(index+1,missing.size,item.name)
+            if(ok)done++ else failed++
+            onProgress(done,total,item.name)
         }
-        return failed
+        return GalleryCacheResult(done,total,failed)
     }
 
     private fun createPreview(smb:SmbProvider,path:String,out:File):Boolean{
