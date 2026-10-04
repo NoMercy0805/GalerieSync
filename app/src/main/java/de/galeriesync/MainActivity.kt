@@ -32,6 +32,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.work.*
@@ -98,19 +100,15 @@ enum class Editor{NONE,NAS,SYNC}
  fun saveProfile(v:NasSettings){profiles.firstOrNull{it.id==v.id}?.let{old->if(old.host!=v.host||old.share!=v.share||old.remoteFolder!=v.remoteFolder){store.saveSyncSnapshot(v.id,emptySet())}else{store.releaseRemovedSourceFolders(v.id,old.sourceFolders,v.sourceFolders)}};profiles=profiles.filterNot{it.id==v.id}+v;store.saveProfiles(profiles)}
  BackHandler(enabled=showHistory||editor!=Editor.NONE||settingsPage!=null||running){if(showHistory){showHistory=false;historyProfile=null}else if(editor!=Editor.NONE){editor=Editor.NONE;editing=null}else if(settingsPage!=null)settingsPage=null else if(running)tab=Tab.GALLERY}
  fun syncNotification(text:String,progress:Int?=null,done:Boolean=false){if(!store.loadNotificationsEnabled())return;val nm=context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as NotificationManager;val channel="galeriesync_sync";if(Build.VERSION.SDK_INT>=26)nm.createNotificationChannel(NotificationChannel(channel,"Synchronisation",NotificationManager.IMPORTANCE_LOW));val n=NotificationCompat.Builder(context,channel).setSmallIcon(android.R.drawable.stat_sys_upload).setContentTitle(if(done)"GalerieSync" else "GalerieSync synchronisiert").setContentText(text).setStyle(NotificationCompat.BigTextStyle().bigText(text)).setOnlyAlertOnce(true).setSilent(true).setOngoing(!done).apply{if(progress!=null)setProgress(100,progress.coerceIn(0,100),false)}.build();nm.notify(if(done)4102 else 4101,n)}
-  fun runProfile(p:NasSettings){
-   if(running)return
-   if(VpnManager.needsVpn(context)){val intent=VpnManager.permissionIntent(context);if(intent!=null){status="VPN-Freigabe erforderlich";vpnPermission.launch(intent);return}}
-   val request=androidx.work.OneTimeWorkRequestBuilder<SyncWorker>().setInputData(androidx.work.workDataOf("profile_id" to p.id)).build()
-   WorkManager.getInstance(context).enqueueUniqueWork("GalerieSync-manual",androidx.work.ExistingWorkPolicy.REPLACE,request)
-   status="Synchronisation im Hintergrund gestartet · "+p.profileName.ifBlank{"Profil"};running=true
-   scope.launch{var lastBytes=0L;var lastAt=System.currentTimeMillis();WorkManager.getInstance(context).getWorkInfoByIdFlow(request.id).collect{info->if(info!=null){val d=info.progress;syncCurrent=d.getInt("doneFiles",syncCurrent);syncTotal=d.getInt("totalFiles",syncTotal);val newBytes=d.getLong("doneBytes",syncDoneBytes);syncTotalBytes=d.getLong("totalBytes",syncTotalBytes);syncFile=d.getString("message")?:syncFile;val now=System.currentTimeMillis();if(now-lastAt>=750&&newBytes>=lastBytes){syncSpeed=(newBytes-lastBytes)*1000L/(now-lastAt).coerceAtLeast(1);lastBytes=newBytes;lastAt=now};syncDoneBytes=newBytes;if(info.state.isFinished){profileLastSync=store.loadProfileLastSync();running=false;syncSpeed=0;status=if(info.state==androidx.work.WorkInfo.State.SUCCEEDED)"Synchronisation abgeschlossen ✓" else "Synchronisation unterbrochen · Details siehe Benachrichtigung";return@collect}}}}
-  }
- if(showHistory){val hp=historyProfile;val all=store.loadSyncHistory();val filtered=if(hp==null)all else all.filter{it.contains("[${hp.id}]")};SyncHistoryScreen(filtered,hp?.profileName?.ifBlank{syncProfileTitle(hp.direction)}){showHistory=false;historyProfile=null};return}
- if(editor==Editor.NAS){NasEditor(editing?:NasSettings(),{editor=Editor.NONE},{saveNas(it);editor=Editor.NONE});return}
- if(editor==Editor.SYNC){SyncEditor(editing,nas,{editor=Editor.NONE},{saveProfile(it);editor=Editor.NONE});return}
- if(settingsPage!=null){SettingsScreen(if(settingsPage=="ROOT")null else settingsPage,{settingsPage=it?:"ROOT"},{settingsPage=null});return}
- 
+ fun runProfile(p:NasSettings){
+  if(running)return
+  if(VpnManager.needsVpn(context)){val intent=VpnManager.permissionIntent(context);if(intent!=null){status="VPN-Freigabe erforderlich";vpnPermission.launch(intent);return}}
+  val request=androidx.work.OneTimeWorkRequestBuilder<SyncWorker>().setInputData(androidx.work.workDataOf("profile_id" to p.id)).build()
+  WorkManager.getInstance(context).enqueueUniqueWork("GalerieSync-manual",androidx.work.ExistingWorkPolicy.REPLACE,request)
+  status="Synchronisation im Hintergrund gestartet · "+p.profileName.ifBlank{"Profil"};running=true
+  scope.launch{var lastBytes=0L;var lastAt=System.currentTimeMillis();WorkManager.getInstance(context).getWorkInfoByIdFlow(request.id).collect{info->if(info!=null){val d=info.progress;syncCurrent=d.getInt("doneFiles",syncCurrent);syncTotal=d.getInt("totalFiles",syncTotal);val newBytes=d.getLong("doneBytes",syncDoneBytes);syncTotalBytes=d.getLong("totalBytes",syncTotalBytes);syncFile=d.getString("message")?:syncFile;val now=System.currentTimeMillis();if(now-lastAt>=750&&newBytes>=lastBytes){syncSpeed=(newBytes-lastBytes)*1000L/(now-lastAt).coerceAtLeast(1);lastBytes=newBytes;lastAt=now};syncDoneBytes=newBytes;if(info.state.isFinished){profileLastSync=store.loadProfileLastSync();running=false;syncSpeed=0;status=if(info.state==androidx.work.WorkInfo.State.SUCCEEDED)"Synchronisation abgeschlossen ✓" else "Synchronisation unterbrochen · Details siehe Benachrichtigung";return@collect}}}}
+ }
+
  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={Row(Modifier.fillMaxWidth().padding(top=10.dp,start=28.dp,end=28.dp,bottom=10.dp),horizontalArrangement=Arrangement.End){IconButton(onClick={settingsPage="ROOT"},modifier=Modifier.offset(x=(-4).dp)){Text("⚙",fontSize=24.sp,color=MaterialTheme.colorScheme.onSurface)}}},bottomBar={NavigationBar(containerColor=MaterialTheme.colorScheme.surface){Tab.entries.forEach{t->NavigationBarItem(selected=tab==t,onClick={tab=t},icon={Text(t.icon,fontSize=20.sp)},label={Text(t.label,fontSize=10.sp)})}}}){pad->
   Box(Modifier.padding(pad).fillMaxSize()){when(tab){
    Tab.GALLERY->de.galeriesync.gallery.NasGalleryScreen(profiles)
@@ -118,6 +116,16 @@ enum class Editor{NONE,NAS,SYNC}
    Tab.SYNC->ProfileList(profiles,profileLastSync,running,syncCurrent,syncTotal,syncDoneBytes,syncTotalBytes,syncFile,syncSpeed,status,{editing=null;editor=Editor.SYNC},{editing=it;editor=Editor.SYNC},{p->profiles=profiles.filterNot{it.id==p.id};store.saveProfiles(profiles)},{p->val v=p.copy(enabled=!p.enabled);profiles=profiles.map{if(it.id==p.id)v else it};store.saveProfiles(profiles)},{runProfile(it)},{p->historyProfile=p;showHistory=true},{WorkManager.getInstance(context).cancelUniqueWork("GalerieSync-manual");syncJob?.cancel();syncJob=null;running=false;syncFile="";status="Synchronisation abgebrochen";if(VpnManager.isUp())scope.launch{VpnManager.disconnect()}})
   }}
  }
+
+ if(showHistory){
+  val hp=historyProfile
+  val all=store.loadSyncHistory()
+  val filtered=if(hp==null)all else all.filter{it.contains("[${hp.id}]")}
+  SyncHistoryScreen(filtered,hp?.profileName?.ifBlank{syncProfileTitle(hp.direction)}){showHistory=false;historyProfile=null}
+ }
+ if(editor==Editor.NAS)NasEditor(editing?:NasSettings(),{editor=Editor.NONE;editing=null},{saveNas(it);editor=Editor.NONE;editing=null})
+ if(editor==Editor.SYNC)SyncEditor(editing,nas,{editor=Editor.NONE;editing=null},{saveProfile(it);editor=Editor.NONE;editing=null})
+ if(settingsPage!=null)SettingsScreen(if(settingsPage=="ROOT")null else settingsPage,{settingsPage=it?:"ROOT"},{settingsPage=null})
 }
 
 @Composable private fun appBg()=MaterialTheme.colorScheme.background
@@ -128,6 +136,24 @@ enum class Editor{NONE,NAS,SYNC}
 @Composable private fun CardBox(content:@Composable ColumnScope.()->Unit){Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface),content={Column(Modifier.padding(16.dp),content=content)})}
 @Composable private fun Field(label:String,value:String,on:(String)->Unit,password:Boolean=false){OutlinedTextField(value,on,label={Text(label)},modifier=Modifier.fillMaxWidth(),singleLine=true,shape=RoundedCornerShape(12.dp),colors=OutlinedTextFieldDefaults.colors(focusedContainerColor=MaterialTheme.colorScheme.surface,unfocusedContainerColor=MaterialTheme.colorScheme.surface,focusedTextColor=MaterialTheme.colorScheme.onSurface,unfocusedTextColor=MaterialTheme.colorScheme.onSurface,focusedLabelColor=MaterialTheme.colorScheme.primary,unfocusedLabelColor=MaterialTheme.colorScheme.onSurfaceVariant,focusedBorderColor=MaterialTheme.colorScheme.primary,unfocusedBorderColor=MaterialTheme.colorScheme.outline,cursorColor=MaterialTheme.colorScheme.primary),visualTransformation=if(password)PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None)}
 @Composable private fun BackTitle(title:String,onBack:()->Unit){Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onBack){Text("‹",fontSize=30.sp,color=MaterialTheme.colorScheme.primary)};Text(title,fontSize=22.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)}}
+
+@Composable private fun ModalWindow(title:String,onClose:()->Unit,onBack:(()->Unit)?=null,content:@Composable BoxScope.()->Unit){
+ Dialog(onDismissRequest=onClose,properties=DialogProperties(usePlatformDefaultWidth=false,dismissOnClickOutside=false)){
+  Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(12.dp),contentAlignment=Alignment.Center){
+   Surface(Modifier.widthIn(max=600.dp).fillMaxWidth().fillMaxHeight(0.9f),shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=14.dp){
+    Column(Modifier.fillMaxSize()){
+     Row(Modifier.fillMaxWidth().padding(horizontal=10.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically){
+      if(onBack!=null)TextButton(onClick=onBack){Text("‹",fontSize=28.sp)} else Spacer(Modifier.width(48.dp))
+      Text(title,Modifier.weight(1f),fontSize=20.sp,fontWeight=FontWeight.Bold,maxLines=1)
+      IconButton(onClick=onClose){Text("✕",fontSize=20.sp)}
+     }
+     HorizontalDivider()
+     Box(Modifier.fillMaxWidth().weight(1f),content=content)
+    }
+   }
+  }
+ }
+}
 
 @Composable private fun Home(nas:List<NasSettings>,profiles:List<NasSettings>,status:String,running:Boolean,current:Int,total:Int,file:String,speed:Long,onAll:()->Unit){
  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())){
@@ -156,24 +182,24 @@ enum class Editor{NONE,NAS,SYNC}
 
 @Composable private fun NasEditor(initial:NasSettings,onBack:()->Unit,onSave:(NasSettings)->Unit){
  var s by remember{mutableStateOf(initial)};var shares by remember{mutableStateOf(emptyList<String>())};var msg by remember{mutableStateOf("")};var ugreenMsg by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var ugreenBusy by remember{mutableStateOf(false)};val scope=rememberCoroutineScope()
- Column(Modifier.fillMaxSize().background(Navy)){
-  BackTitle(if(initial.host.isBlank())"NAS hinzufügen" else "NAS bearbeiten",onBack)
-  Column(Modifier.padding(20.dp,16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){
-    Text("Lokale Verbindung",color=Color.White,fontWeight=FontWeight.Bold,fontSize=19.sp)
-    Text("SMB im lokalen Netzwerk",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)
-    Field("Name",s.name,{s=s.copy(name=it)})
-    Field("Server / IP-Adresse",s.host,{s=s.copy(host=it)})
-    Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){Box(Modifier.weight(1f)){Field("Benutzername",s.username,{s=s.copy(username=it)})};Box(Modifier.weight(1f)){Field("Passwort",s.password,{s=s.copy(password=it)},true)}}
-    Button(onClick={scope.launch{busy=true;msg=runCatching{shares=withContext(Dispatchers.IO){SmbProvider(s.copy(share="")).listShares()};if(shares.isEmpty())"SMB erreichbar · Freigabe manuell eintragen" else "✓ "+shares.size+" Freigaben gefunden"}.getOrElse{"✕ "+(it.message?:it.javaClass.simpleName)};busy=false}},enabled=!busy&&s.host.isNotBlank()&&s.username.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text(if(busy)"Suche …" else "Verbindung testen & Freigaben suchen",color=if(!busy&&s.host.isNotBlank()&&s.username.isNotBlank())Color.White else Muted)}
-    if(msg.isNotBlank())Text(msg,color=if(msg.startsWith("✓"))Green else Muted,fontSize=12.sp)
-    if(shares.isNotEmpty()){Text("Freigabe auswählen",color=Color.White,fontWeight=FontWeight.SemiBold);shares.forEach{sh->Surface(Modifier.fillMaxWidth().clickable{s=s.copy(share=sh)},shape=RoundedCornerShape(12.dp),color=if(s.share==sh)Color(0xFF17466A) else Panel){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Text("▣",color=Blue);Spacer(Modifier.width(10.dp));Text(sh,Modifier.weight(1f),color=Color.White);RadioButton(s.share==sh,null)}}}}
-    Field("SMB-Freigabe",s.share,{s=s.copy(share=it)})
-      Spacer(Modifier.height(4.dp))
+ ModalWindow(if(initial.host.isBlank())"NAS hinzufügen" else "NAS bearbeiten",onBack){
+  Column(Modifier.fillMaxSize().padding(20.dp,16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){
+   Text("Lokale Verbindung",color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold,fontSize=19.sp)
+   Text("SMB im lokalen Netzwerk",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)
+   Field("Name",s.name,{s=s.copy(name=it)})
+   Field("Server / IP-Adresse",s.host,{s=s.copy(host=it)})
+   Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){Box(Modifier.weight(1f)){Field("Benutzername",s.username,{s=s.copy(username=it)})};Box(Modifier.weight(1f)){Field("Passwort",s.password,{s=s.copy(password=it)},true)}}
+   Button(onClick={scope.launch{busy=true;msg=runCatching{shares=withContext(Dispatchers.IO){SmbProvider(s.copy(share="")).listShares()};if(shares.isEmpty())"SMB erreichbar · Freigabe manuell eintragen" else "✓ "+shares.size+" Freigaben gefunden"}.getOrElse{"✕ "+(it.message?:it.javaClass.simpleName)};busy=false}},enabled=!busy&&s.host.isNotBlank()&&s.username.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text(if(busy)"Suche …" else "Verbindung testen & Freigaben suchen",color=if(!busy&&s.host.isNotBlank()&&s.username.isNotBlank())Color.White else Muted)}
+   if(msg.isNotBlank())Text(msg,color=if(msg.startsWith("✓"))Green else Muted,fontSize=12.sp)
+   if(shares.isNotEmpty()){Text("Freigabe auswählen",color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.SemiBold);shares.forEach{sh->Surface(Modifier.fillMaxWidth().clickable{s=s.copy(share=sh)},shape=RoundedCornerShape(12.dp),color=if(s.share==sh)Color(0xFF17466A) else Panel){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Text("▣",color=Blue);Spacer(Modifier.width(10.dp));Text(sh,Modifier.weight(1f),color=Color.White);RadioButton(s.share==sh,null)}}}}
+   Field("SMB-Freigabe",s.share,{s=s.copy(share=it)})
+   Spacer(Modifier.height(4.dp))
    Button(onClick={onSave(s.copy(name=s.name.ifBlank{s.host}))},enabled=(s.host.isNotBlank()&&s.share.isNotBlank()),modifier=Modifier.fillMaxWidth().height(52.dp),shape=RoundedCornerShape(12.dp)){Text("NAS-Verbindung speichern",color=if((s.host.isNotBlank()&&s.share.isNotBlank()))Color.White else Muted,fontWeight=FontWeight.Bold)}
    Spacer(Modifier.height(18.dp))
   }
  }
 }
+
 @Composable private fun SyncEditor(existing:NasSettings?,connections:List<NasSettings>,onBack:()->Unit,onSave:(NasSettings)->Unit){
  var step by remember{mutableIntStateOf(0)}
  var selected by remember{mutableStateOf(existing?:connections.firstOrNull())}
@@ -181,74 +207,81 @@ enum class Editor{NONE,NAS,SYNC}
  var folders by remember{mutableStateOf(emptyList<MediaFolder>())}
  val context=LocalContext.current
  LaunchedEffect(step){if(step==1)folders=withContext(Dispatchers.IO){MediaScanner(context.contentResolver).folderMedia()}}
- Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)){
-  BackTitle(if(existing==null)"Neue Synchronisation" else "Synchronisation bearbeiten",onBack)
-  Box(Modifier.weight(1f)){
-  Column(Modifier.fillMaxSize().padding(16.dp).padding(bottom=if(step==1)118.dp else 0.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
-   if(connections.isEmpty()){
-    CardBox{Text("Zuerst eine NAS hinzufügen",color=Color.White,fontWeight=FontWeight.Bold);Text("Synchronisationen benötigen eine gespeicherte NAS-Verbindung.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
-   }else if(step==0){
-    Field("Name der Synchronisation",p.profileName,{p=p.copy(profileName=it)})
-    Text("NAS auswählen",color=Color.White,fontWeight=FontWeight.Bold)
-    connections.forEach{n->val active=selected?.id==n.id;Card(Modifier.fillMaxWidth().clickable{selected=n;p=p.copy(host=n.host,share=n.share,username=n.username,password=n.password,domain=n.domain,name=n.name)},colors=CardDefaults.cardColors(containerColor=if(active)Color(0xFF17466A) else Panel)){Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){Text(n.name.ifBlank{n.host},Modifier.weight(1f),fontWeight=FontWeight.Bold,color=Color.White);RadioButton(active,null)}}}
-    Text("Richtung",color=Color.White,fontWeight=FontWeight.Bold)
-    DirectionCard("Handy → NAS",p.direction==SyncDirection.PHONE_TO_NAS){p=p.copy(direction=SyncDirection.PHONE_TO_NAS)}
-    DirectionCard("NAS → Handy",p.direction==SyncDirection.NAS_TO_PHONE){p=p.copy(direction=SyncDirection.NAS_TO_PHONE)}
-    DirectionCard("Bidirektional",p.direction==SyncDirection.BIDIRECTIONAL){p=p.copy(direction=SyncDirection.BIDIRECTIONAL)}
-    Button(onClick={step=1},modifier=Modifier.fillMaxWidth()){Text("Ordner auswählen",color=Color.White)}
-   }else{
-    Row(verticalAlignment=Alignment.CenterVertically){
-     Column(Modifier.weight(1f)){Text("Ordner auswählen",color=Color.White,fontWeight=FontWeight.Bold,fontSize=20.sp);Text("Fotos & Videos auf dem Smartphone",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)}
-     Surface(shape=RoundedCornerShape(20.dp),color=Panel2){Text(p.sourceFolders.size.toString()+" gewählt",Modifier.padding(10.dp,6.dp),color=Blue,fontSize=12.sp,fontWeight=FontWeight.Bold)}
-    }
-    val allSelected=folders.isNotEmpty()&&p.sourceFolders.containsAll(folders.map{it.path})
-    TextButton(onClick={p=p.copy(sourceFolders=if(allSelected)emptySet() else folders.map{it.path}.toSet())},enabled=folders.isNotEmpty(),modifier=Modifier.fillMaxWidth()){
-     Text(if(allSelected)"Auswahl aufheben" else "Alle Ordner auswählen",color=Blue,fontWeight=FontWeight.SemiBold)
-    }
-    folders.sortedWith(compareBy<MediaFolder>({folderGroupOrder(it.path)},{folderRelativeSortKey(it.path).lowercase(java.util.Locale.GERMANY)})).forEach{f->
-     val active=f.path in p.sourceFolders
-     Card(Modifier.fillMaxWidth().clickable{p=p.copy(sourceFolders=if(active)p.sourceFolders-f.path else p.sourceFolders+f.path)},shape=RoundedCornerShape(16.dp),colors=CardDefaults.cardColors(containerColor=if(active)Color(0xFF17466A) else Panel)){
-      Column(Modifier.padding(12.dp)){
-       Row(verticalAlignment=Alignment.CenterVertically){Checkbox(active,null);Spacer(Modifier.width(4.dp));Column{Text(f.name,fontWeight=FontWeight.Bold,fontSize=17.sp,color=Color.White);Text(f.count.toString()+" Dateien",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)}}
-       if(f.previews.isNotEmpty()){Spacer(Modifier.height(8.dp));Row(horizontalArrangement=Arrangement.spacedBy(5.dp)){f.previews.take(4).forEach{u->AsyncImage(model=u,contentDescription=null,contentScale=ContentScale.Crop,modifier=Modifier.weight(1f).height(68.dp))}}}
+ ModalWindow(if(existing==null)"Neue Synchronisation" else "Synchronisation bearbeiten",onBack){
+  Box(Modifier.fillMaxSize()){
+   Column(Modifier.fillMaxSize().padding(16.dp).padding(bottom=if(step==1)118.dp else 0.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
+    if(connections.isEmpty()){
+     CardBox{Text("Zuerst eine NAS hinzufügen",color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold);Text("Synchronisationen benötigen eine gespeicherte NAS-Verbindung.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
+    }else if(step==0){
+     Field("Name der Synchronisation",p.profileName,{p=p.copy(profileName=it)})
+     Text("NAS auswählen",color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold)
+     connections.forEach{n->val active=selected?.id==n.id;Card(Modifier.fillMaxWidth().clickable{selected=n;p=p.copy(host=n.host,share=n.share,username=n.username,password=n.password,domain=n.domain,name=n.name)},colors=CardDefaults.cardColors(containerColor=if(active)Color(0xFF17466A) else Panel)){Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){Text(n.name.ifBlank{n.host},Modifier.weight(1f),fontWeight=FontWeight.Bold,color=Color.White);RadioButton(active,null)}}}
+     Text("Richtung",color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold)
+     DirectionCard("Handy → NAS",p.direction==SyncDirection.PHONE_TO_NAS){p=p.copy(direction=SyncDirection.PHONE_TO_NAS)}
+     DirectionCard("NAS → Handy",p.direction==SyncDirection.NAS_TO_PHONE){p=p.copy(direction=SyncDirection.NAS_TO_PHONE)}
+     DirectionCard("Bidirektional",p.direction==SyncDirection.BIDIRECTIONAL){p=p.copy(direction=SyncDirection.BIDIRECTIONAL)}
+     Button(onClick={step=1},modifier=Modifier.fillMaxWidth()){Text("Ordner auswählen",color=Color.White)}
+    }else{
+     Row(verticalAlignment=Alignment.CenterVertically){
+      Column(Modifier.weight(1f)){Text("Ordner auswählen",color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold,fontSize=20.sp);Text("Fotos & Videos auf dem Smartphone",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)}
+      Surface(shape=RoundedCornerShape(20.dp),color=Panel2){Text(p.sourceFolders.size.toString()+" gewählt",Modifier.padding(10.dp,6.dp),color=Blue,fontSize=12.sp,fontWeight=FontWeight.Bold)}
+     }
+     val allSelected=folders.isNotEmpty()&&p.sourceFolders.containsAll(folders.map{it.path})
+     TextButton(onClick={p=p.copy(sourceFolders=if(allSelected)emptySet() else folders.map{it.path}.toSet())},enabled=folders.isNotEmpty(),modifier=Modifier.fillMaxWidth()){
+      Text(if(allSelected)"Auswahl aufheben" else "Alle Ordner auswählen",color=Blue,fontWeight=FontWeight.SemiBold)
+     }
+     folders.sortedWith(compareBy<MediaFolder>({folderGroupOrder(it.path)},{folderRelativeSortKey(it.path).lowercase(java.util.Locale.GERMANY)})).forEach{f->
+      val active=f.path in p.sourceFolders
+      Card(Modifier.fillMaxWidth().clickable{p=p.copy(sourceFolders=if(active)p.sourceFolders-f.path else p.sourceFolders+f.path)},shape=RoundedCornerShape(16.dp),colors=CardDefaults.cardColors(containerColor=if(active)Color(0xFF17466A) else Panel)){
+       Column(Modifier.padding(12.dp)){
+        Row(verticalAlignment=Alignment.CenterVertically){Checkbox(active,null);Spacer(Modifier.width(4.dp));Column{Text(f.name,fontWeight=FontWeight.Bold,fontSize=17.sp,color=Color.White);Text(f.count.toString()+" Dateien",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)}}
+        if(f.previews.isNotEmpty()){Spacer(Modifier.height(8.dp));Row(horizontalArrangement=Arrangement.spacedBy(5.dp)){f.previews.take(4).forEach{u->AsyncImage(model=u,contentDescription=null,contentScale=ContentScale.Crop,modifier=Modifier.weight(1f).height(68.dp))}}}
+       }
       }
      }
     }
-
    }
-  }
-  if(step==1){
-   Surface(modifier=Modifier.align(Alignment.BottomCenter).fillMaxWidth(),shadowElevation=12.dp,color=MaterialTheme.colorScheme.surface){
-    Column(Modifier.padding(horizontal=16.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-     Field("Basisordner auf der NAS",p.remoteFolder,{p=p.copy(remoteFolder=it)})
-     if(p.sourceFolders.isNotEmpty()){
-      val first=p.sourceFolders.sorted().first();val clean=first.trim('/');val parts=clean.split('/').filter{it.isNotBlank()};val rest=if(parts.firstOrNull()?.lowercase() in setOf("dcim","pictures","movies"))parts.drop(1).joinToString("/") else clean
-      Text("NAS: "+p.remoteFolder.trimEnd('/')+"/Bilder & Videos/"+rest+(if(p.sourceFolders.size>1)"  +${p.sourceFolders.size-1} weitere" else ""),color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp,maxLines=1)
+   if(step==1){
+    Surface(modifier=Modifier.align(Alignment.BottomCenter).fillMaxWidth(),shadowElevation=12.dp,color=MaterialTheme.colorScheme.surface){
+     Column(Modifier.padding(horizontal=16.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+      Field("Basisordner auf der NAS",p.remoteFolder,{p=p.copy(remoteFolder=it)})
+      if(p.sourceFolders.isNotEmpty()){
+       val first=p.sourceFolders.sorted().first();val clean=first.trim('/');val parts=clean.split('/').filter{it.isNotBlank()};val rest=if(parts.firstOrNull()?.lowercase() in setOf("dcim","pictures","movies"))parts.drop(1).joinToString("/") else clean
+       Text("NAS: "+p.remoteFolder.trimEnd('/')+"/Bilder & Videos/"+rest+(if(p.sourceFolders.size>1)"  +${p.sourceFolders.size-1} weitere" else ""),color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp,maxLines=1)
+      }
+      Button(onClick={onSave(p.copy(profileName=p.profileName.ifBlank{syncProfileTitle(p.direction)}))},enabled=p.sourceFolders.isNotEmpty()&&p.remoteFolder.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text("Synchronisation speichern")}
      }
-     Button(onClick={onSave(p.copy(profileName=p.profileName.ifBlank{syncProfileTitle(p.direction)}))},enabled=p.sourceFolders.isNotEmpty()&&p.remoteFolder.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text("Synchronisation speichern")}
     }
    }
   }
- }
  }
 }
 
 @Composable private fun DirectionCard(t:String,on:Boolean,click:()->Unit){Card(Modifier.fillMaxWidth().clickable{click()},shape=RoundedCornerShape(14.dp),colors=CardDefaults.cardColors(containerColor=if(on)Color(0xFF17466A) else Panel)){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(t,Modifier.weight(1f),fontWeight=FontWeight.SemiBold,color=Color.White);RadioButton(on,click)}}}
-@Composable private fun SettingsScreen(page:String?,open:(String?)->Unit,onClose:()->Unit){val context=LocalContext.current
- if(page!=null){Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)){BackTitle(page){open(null)};Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){when(page){
-  "Allgemein"->ThemeSettings()
-  "WLAN-Einstellungen"->VpnFallbackSettings(context)
-  "Automatische Synchronisation"->AutoSyncSettings(context)
-  "Daten & Speicher"->CardBox{Text("Lokale Daten",color=Color.White,fontWeight=FontWeight.Bold);Text("NAS-Zugangsdaten werden verschlüsselt gespeichert. Spiegel-Profile können entfernte Dateien auf der Gegenseite ebenfalls entfernen.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
-  else->CardBox{Text("GalerieSync",color=Color.White,fontWeight=FontWeight.Bold,fontSize=20.sp);Text("Version 0.4.0",color=MaterialTheme.colorScheme.onSurfaceVariant);Text("Fotos und Videos zwischen Smartphone und NAS synchronisieren.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
- }}};return}
- Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)){Row(Modifier.fillMaxWidth().padding(start=20.dp,end=20.dp,top=10.dp,bottom=18.dp),verticalAlignment=Alignment.CenterVertically){Text("Einstellungen",fontSize=25.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground,modifier=Modifier.weight(1f));IconButton(onClick=onClose){Text("✕",fontSize=22.sp,color=MaterialTheme.colorScheme.onBackground)}};Column(Modifier.padding(horizontal=20.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
-  SettingsRow("⚙","Allgemein","Design, Benachrichtigungen, Sprache"){open("Allgemein")}
-  SettingsRow("◉","WLAN & VPN","Vertrauenswürdige WLANs · VPN-Fallback"){open("WLAN-Einstellungen")}
-  SettingsRow("◷","Automatische Synchronisation","Zeitplan · Hintergrund"){open("Automatische Synchronisation")}
-  SettingsRow("▣","Daten & Speicher","Speicherorte, Cache, Datenbank"){open("Daten & Speicher")}
-  SettingsRow("ⓘ","Über die App","GalerieSync · Version 0.4.0"){open("Über die App")}
- }}}
+
+@Composable private fun SettingsScreen(page:String?,open:(String?)->Unit,onClose:()->Unit){
+ val context=LocalContext.current
+ ModalWindow(title=page?:"Einstellungen",onClose=onClose,onBack=if(page!=null){{open(null)}}else null){
+  Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){
+   if(page!=null){
+    when(page){
+     "Allgemein"->ThemeSettings()
+     "WLAN-Einstellungen"->VpnFallbackSettings(context)
+     "Automatische Synchronisation"->AutoSyncSettings(context)
+     "Daten & Speicher"->CardBox{Text("Lokale Daten",color=Color.White,fontWeight=FontWeight.Bold);Text("NAS-Zugangsdaten werden verschlüsselt gespeichert. Spiegel-Profile können entfernte Dateien auf der Gegenseite ebenfalls entfernen.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
+     else->CardBox{Text("GalerieSync",color=Color.White,fontWeight=FontWeight.Bold,fontSize=20.sp);Text("Version 0.4.0",color=MaterialTheme.colorScheme.onSurfaceVariant);Text("Fotos und Videos zwischen Smartphone und NAS synchronisieren.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
+    }
+   }else{
+    SettingsRow("⚙","Allgemein","Design, Benachrichtigungen, Sprache"){open("Allgemein")}
+    SettingsRow("◉","WLAN & VPN","Vertrauenswürdige WLANs · VPN-Fallback"){open("WLAN-Einstellungen")}
+    SettingsRow("◷","Automatische Synchronisation","Zeitplan · Hintergrund"){open("Automatische Synchronisation")}
+    SettingsRow("▣","Daten & Speicher","Speicherorte, Cache, Datenbank"){open("Daten & Speicher")}
+    SettingsRow("ⓘ","Über die App","GalerieSync · Version 0.4.0"){open("Über die App")}
+   }
+  }
+ }
+}
+
 @Composable private fun ThemeSettings(){val context=LocalContext.current;val store=remember{SettingsStore(context)};val uploadPrefs=remember{context.getSharedPreferences("upload_settings",android.content.Context.MODE_PRIVATE)};val mode=LocalThemeMode.current;val setMode=LocalSetThemeMode.current;var notifications by remember{mutableStateOf(store.loadNotificationsEnabled())};var speedLimit by remember{mutableStateOf((store.loadSpeedLimitKbps()/1024L).takeIf{it>0}?.toString()?:"")};var concurrentUploads by remember{mutableIntStateOf(uploadPrefs.getInt("concurrent_uploads",2).coerceIn(1,6))};Column(verticalArrangement=Arrangement.spacedBy(12.dp)){CardBox{Text("Gleichzeitige Uploads",fontWeight=FontWeight.Bold);Text("Legt fest, wie viele Dateien parallel zur NAS hochgeladen werden. Maximum: 6.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp);Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){(1..6).forEach{n->FilterChip(selected=concurrentUploads==n,onClick={concurrentUploads=n;uploadPrefs.edit().putInt("concurrent_uploads",n).apply()},label={Text(n.toString())})}}};CardBox{Text("Synchronisationsgeschwindigkeit",fontWeight=FontWeight.Bold);Text("Optionales Limit für Uploads zur NAS. Leer oder 0 bedeutet unbegrenzt.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp);OutlinedTextField(value=speedLimit,onValueChange={speedLimit=it.filter(Char::isDigit).take(5)},label={Text("Limit in MB/s")},singleLine=true,modifier=Modifier.fillMaxWidth());Button(onClick={store.saveSpeedLimitKbps((speedLimit.toLongOrNull()?:0L)*1024L)},modifier=Modifier.fillMaxWidth()){Text("Geschwindigkeitslimit speichern")}};CardBox{Text("Darstellung",fontWeight=FontWeight.Bold);Text("Wähle das Erscheinungsbild von GalerieSync.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp);listOf("SYSTEM" to "System","LIGHT" to "Hell","DARK" to "Dunkel").forEach{(v,label)->Row(Modifier.fillMaxWidth().clickable{setMode(v)}.padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){RadioButton(mode==v,{setMode(v)});Spacer(Modifier.width(8.dp));Text(label)}}};CardBox{Text("Benachrichtigungen",fontWeight=FontWeight.Bold);Text("Zeigt Start, Fortschritt und Ergebnis von Synchronisationen an.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp);Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("Sync-Benachrichtigungen",Modifier.weight(1f));Switch(checked=notifications,onCheckedChange={on->if(on&&Build.VERSION.SDK_INT>=33&&ContextCompat.checkSelfPermission(context,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){androidx.core.app.ActivityCompat.requestPermissions(context as android.app.Activity,arrayOf(Manifest.permission.POST_NOTIFICATIONS),7001)};notifications=on;store.saveNotificationsEnabled(on)})}}}}
 @Composable private fun VpnFallbackSettings(context:android.content.Context){
  val store=remember{SettingsStore(context)};var trusted by remember{mutableStateOf(store.loadTrustedWifi())};var config by remember{mutableStateOf(store.loadVpnConfig())};var current by remember{mutableStateOf(currentWifiName(context))};var message by remember{mutableStateOf("")};var testing by remember{mutableStateOf(false)};var confirmRemove by remember{mutableStateOf(false)};val scope=rememberCoroutineScope()
@@ -306,4 +339,10 @@ private fun formatBytes(v:Long):String{val locale=java.util.Locale.GERMANY;retur
 private fun folderGroupOrder(path:String):Int{val top=path.trim('/').substringBefore('/').lowercase();return when(top){"dcim"->0;"pictures"->1;"movies"->2 else->3}}
 private fun folderRelativeSortKey(path:String):String{val clean=path.trim('/');val parts=clean.split('/').filter{it.isNotBlank()};return if(parts.firstOrNull()?.lowercase() in setOf("dcim","pictures","movies"))parts.drop(1).joinToString("/") else clean}
 
-@Composable private fun SyncHistoryScreen(items:List<String>,profileName:String?=null,onBack:()->Unit){Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)){BackTitle(profileName?.let{"Verlauf · $it"}?:"Synchronisationsverlauf",onBack);Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){if(items.isEmpty())CardBox{Text("Noch keine Synchronisationen",fontWeight=FontWeight.Bold);Text("Ab der nächsten Synchronisation wird der Verlauf hier gespeichert.",color=MaterialTheme.colorScheme.onSurfaceVariant)} else items.forEach{entry->CardBox{Text(entry.substringBefore(" · "),fontWeight=FontWeight.Bold);Text(entry.substringAfter(" · "),color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}}
+@Composable private fun SyncHistoryScreen(items:List<String>,profileName:String?=null,onBack:()->Unit){
+ ModalWindow(profileName?.let{"Verlauf · $it"}?:"Synchronisationsverlauf",onBack){
+  Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
+   if(items.isEmpty())CardBox{Text("Noch keine Synchronisationen",fontWeight=FontWeight.Bold);Text("Ab der nächsten Synchronisation wird der Verlauf hier gespeichert.",color=MaterialTheme.colorScheme.onSurfaceVariant)} else items.forEach{entry->CardBox{Text(entry.substringBefore(" · "),fontWeight=FontWeight.Bold);Text(entry.substringAfter(" · "),color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+  }
+ }
+}
