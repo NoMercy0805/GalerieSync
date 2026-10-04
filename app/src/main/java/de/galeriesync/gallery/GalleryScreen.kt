@@ -57,6 +57,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
     var progressTotal by remember{mutableIntStateOf(0)}
     var pickerOpen by remember{mutableStateOf(selection==null)}
     var deleteOfflineConfirm by remember{mutableStateOf(false)}
+    var galleryMenuOpen by remember{mutableStateOf(false)}
 
     fun reloadLocal(){
         media=repo.loadIndex()
@@ -123,17 +124,37 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
     BackHandler(enabled=folder.isNotBlank()){folder=folder.substringBeforeLast('/',"")}
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)){
-        Row(Modifier.fillMaxWidth().padding(horizontal=18.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically){
+        Row(Modifier.fillMaxWidth().padding(horizontal=18.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically){
             Column(Modifier.weight(1f)){
                 Text("Galerie",fontSize=25.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
-                Text("Verkleinerte Offline-Vorschauen · ohne Speicherlimit",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Verkleinerte Offline-Vorschauen · ohne Speicherlimit",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
             }
-            TextButton(onClick={pickerOpen=true},enabled=profiles.isNotEmpty()){Text(if(selection==null)"Ordner wählen" else "Ordner ändern")}
+            if(selection==null){
+                TextButton(onClick={pickerOpen=true},enabled=profiles.isNotEmpty()){Text("Ordner wählen")}
+            }else{
+                Box{
+                    IconButton(onClick={galleryMenuOpen=true}){Text("⋮",fontSize=25.sp,color=MaterialTheme.colorScheme.onSurface)}
+                    DropdownMenu(expanded=galleryMenuOpen,onDismissRequest={galleryMenuOpen=false}){
+                        DropdownMenuItem(
+                            text={Text("Ordner ändern")},
+                            onClick={galleryMenuOpen=false;pickerOpen=true},
+                            enabled=profiles.isNotEmpty()
+                        )
+                        if(progressDone>0){
+                            DropdownMenuItem(
+                                text={Text("Offline-Daten löschen",color=MaterialTheme.colorScheme.error)},
+                                onClick={galleryMenuOpen=false;deleteOfflineConfirm=true},
+                                enabled=!working
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         if(selection!=null){
-            Surface(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=2.dp),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface){
-                Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically){
+            Surface(Modifier.fillMaxWidth().padding(horizontal=16.dp),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface){
+                Row(Modifier.fillMaxWidth().padding(10.dp),verticalAlignment=Alignment.CenterVertically){
                     Text("📁",fontSize=25.sp)
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)){
@@ -141,13 +162,6 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
                         Text("/"+selection!!.folder.ifBlank{""},fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)
                     }
                     TextButton(onClick={startRefresh()},enabled=!working){Text(if(working)"Läuft …" else "Aktualisieren")}
-                }
-            }
-            if(progressDone>0){
-                Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.End){
-                    TextButton(onClick={deleteOfflineConfirm=true},enabled=!working){
-                        Text("Offline-Daten löschen",color=MaterialTheme.colorScheme.error)
-                    }
                 }
             }
         }
