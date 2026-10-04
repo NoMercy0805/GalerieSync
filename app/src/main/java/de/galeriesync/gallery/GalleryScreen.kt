@@ -1,5 +1,7 @@
 package de.galeriesync.gallery
 
+import android.widget.MediaController
+import android.widget.VideoView
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.work.*
@@ -38,6 +41,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 private data class GalleryFolder(val name:String,val path:String,val count:Int)
 
@@ -125,7 +129,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
         Row(Modifier.fillMaxWidth().padding(horizontal=18.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically){
             Column(Modifier.weight(1f)){
                 Text("Galerie",fontSize=25.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
-                Text("Verkleinerte Offline-Vorschauen · ohne Speicherlimit",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
+                Text("Verkleinerte Offline-Medien · ohne Speicherlimit",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
             }
             if(selection==null){
                 TextButton(onClick={pickerOpen=true},enabled=profiles.isNotEmpty()){Text("Ordner wählen")}
@@ -158,7 +162,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
         if(working&&progressTotal==0)LinearProgressIndicator(Modifier.fillMaxWidth())
         if(progressTotal>0){
             LinearProgressIndicator(progress={progressDone.toFloat()/progressTotal.coerceAtLeast(1)},modifier=Modifier.fillMaxWidth().padding(top=2.dp))
-            Text("$progressDone Bilder fertig · $openCount offen · $progressTotal gesamt",Modifier.padding(horizontal=18.dp,vertical=5.dp),fontSize=12.sp,fontWeight=FontWeight.SemiBold,color=MaterialTheme.colorScheme.onSurface)
+            Text("$progressDone Medien fertig · $openCount offen · $progressTotal gesamt",Modifier.padding(horizontal=18.dp,vertical=5.dp),fontSize=12.sp,fontWeight=FontWeight.SemiBold,color=MaterialTheme.colorScheme.onSurface)
         }
         if(working){
             Text("Aktualisierung läuft im Hintergrund weiter",Modifier.padding(horizontal=18.dp,vertical=2.dp),fontSize=11.sp,fontWeight=FontWeight.SemiBold,color=MaterialTheme.colorScheme.primary)
@@ -180,8 +184,8 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
             media.isEmpty()&&!working->{
                 Box(Modifier.fillMaxSize().padding(24.dp),contentAlignment=Alignment.TopCenter){
                     Card{Column(Modifier.padding(18.dp)){
-                        Text("Noch keine Offline-Vorschauen",fontWeight=FontWeight.Bold)
-                        Text("Tippe auf Aktualisieren. Die App liest nur den gewählten NAS-Ordner ein und erstellt daraus verkleinerte lokale Vorschauen.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=13.sp)
+                        Text("Noch keine Offline-Medien",fontWeight=FontWeight.Bold)
+                        Text("Tippe auf Aktualisieren. Die App liest nur den gewählten NAS-Ordner ein und erstellt daraus verkleinerte Bilder und komprimierte Offline-Videos.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=13.sp)
                         Spacer(Modifier.height(12.dp))
                         Button(onClick={startRefresh()},modifier=Modifier.fillMaxWidth()){Text("Jetzt einlesen")}
                     }}
@@ -233,17 +237,15 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
         AlertDialog(
             onDismissRequest={deleteOfflineConfirm=false},
             title={Text("Offline-Daten löschen?")},
-            text={Text("Alle lokal gespeicherten Galerie-Vorschauen werden gelöscht. NAS-Dateien, Ordnerauswahl und Synchronisation bleiben unverändert.")},
+            text={Text("Alle lokal gespeicherten Bildvorschauen und komprimierten Offline-Videos werden gelöscht. NAS-Dateien, Ordnerauswahl und Synchronisation bleiben unverändert.")},
             confirmButton={
                 TextButton(onClick={
                     deleteOfflineConfirm=false
                     selected=null
                     scope.launch{
-                        val deleted=withContext(Dispatchers.IO){
-                            media.asSequence().filterNot{it.video}.map{repo.previewFile(it)}.count{file->file.exists()&&file.delete()}
-                        }
+                        val deleted=withContext(Dispatchers.IO){repo.clearOfflineData()}
                         reloadLocal()
-                        status="$deleted Offline-Vorschau(en) gelöscht"
+                        status="$deleted Offline-Datei(en) gelöscht"
                     }
                 }){Text("Löschen",color=MaterialTheme.colorScheme.error)}
             },
@@ -352,12 +354,21 @@ private fun FolderTile(folder:GalleryFolder,onClick:()->Unit){
 @Composable
 private fun MediaTile(item:GalleryMedia,repo:GalleryRepository,onClick:()->Unit){
     val preview=repo.previewFile(item)
+    val videoReady=!item.video||repo.offlineVideoFile(item).exists()
     Card(Modifier.aspectRatio(1f).clickable{onClick()},shape=RoundedCornerShape(10.dp)){
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){
             when{
-                item.video->Text("▶",fontSize=34.sp,color=MaterialTheme.colorScheme.primary)
                 preview.exists()->AsyncImage(model=preview,contentDescription=item.name,modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+                item.video->Column(horizontalAlignment=Alignment.CenterHorizontally){
+                    Text("▶",fontSize=34.sp,color=MaterialTheme.colorScheme.primary)
+                    if(!videoReady)Text("Offline wird erstellt",fontSize=9.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 else->Column(horizontalAlignment=Alignment.CenterHorizontally){Text("▧",fontSize=30.sp,color=MaterialTheme.colorScheme.onSurfaceVariant);Text("Vorschau",fontSize=9.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+            }
+            if(item.video){
+                Surface(Modifier.align(Alignment.Center),shape=RoundedCornerShape(30.dp),color=Color.Black.copy(alpha=0.55f)){
+                    Text("▶",Modifier.padding(horizontal=15.dp,vertical=9.dp),fontSize=24.sp,color=Color.White)
+                }
             }
             Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth(),color=Color.Black.copy(alpha=0.45f)){
                 Text(item.name,Modifier.padding(5.dp),fontSize=9.sp,color=Color.White,maxLines=1,overflow=TextOverflow.Ellipsis)
@@ -389,12 +400,17 @@ private fun MediaDialog(item:GalleryMedia,repo:GalleryRepository,onClose:()->Uni
     Dialog(onDismissRequest=onClose,properties=DialogProperties(usePlatformDefaultWidth=false)){
         Box(Modifier.fillMaxSize().background(Color.Black)){
             if(item.video){
-                Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
-                    Column(horizontalAlignment=Alignment.CenterHorizontally){
-                        Text("▶",fontSize=64.sp,color=Color.White)
-                        Spacer(Modifier.height(12.dp))
-                        Text("Video",fontWeight=FontWeight.Bold,color=Color.White)
-                        Text("Das Originalvideo wird nicht geladen.",fontSize=12.sp,color=Color.White.copy(alpha=0.7f))
+                val offlineVideo=repo.offlineVideoFile(item)
+                if(offlineVideo.exists()){
+                    OfflineVideoPlayer(offlineVideo)
+                }else{
+                    Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
+                        Column(horizontalAlignment=Alignment.CenterHorizontally){
+                            CircularProgressIndicator(color=Color.White)
+                            Spacer(Modifier.height(12.dp))
+                            Text("Offline-Video wird noch erstellt",fontWeight=FontWeight.Bold,color=Color.White)
+                            Text("Das Originalvideo wird nicht abgespielt.",fontSize=12.sp,color=Color.White.copy(alpha=0.7f))
+                        }
                     }
                 }
             }else{
@@ -430,14 +446,46 @@ private fun MediaDialog(item:GalleryMedia,repo:GalleryRepository,onClose:()->Uni
                 Modifier.fillMaxWidth().align(Alignment.BottomCenter).background(Color.Black.copy(alpha=0.45f)).navigationBarsPadding().padding(horizontal=18.dp,vertical=12.dp)
             ){
                 Text(currentItem.relativePath(),fontSize=11.sp,color=Color.White.copy(alpha=0.8f),maxLines=2,overflow=TextOverflow.Ellipsis)
-                if(!currentItem.video)Text("Links/rechts wischen · mit zwei Fingern zoomen · verkleinerte Offline-Vorschau · Original wird nie geladen",fontSize=10.sp,color=Color.White.copy(alpha=0.65f))
+                if(currentItem.video){
+                    Text("Komprimierte Offline-Version · Original wird nicht abgespielt",fontSize=10.sp,color=Color.White.copy(alpha=0.65f))
+                }else{
+                    Text("Links/rechts wischen · mit zwei Fingern zoomen · verkleinerte Offline-Vorschau · Original wird nie geladen",fontSize=10.sp,color=Color.White.copy(alpha=0.65f))
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ZoomablePreview(item:GalleryMedia,previewFile:java.io.File,isCurrent:Boolean,onZoomActive:(Boolean)->Unit){
+private fun OfflineVideoPlayer(file:File){
+    var view by remember(file.absolutePath){mutableStateOf<VideoView?>(null)}
+    DisposableEffect(file.absolutePath){
+        onDispose{runCatching{view?.stopPlayback()}}
+    }
+    AndroidView(
+        factory={ctx->
+            VideoView(ctx).apply{
+                view=this
+                val controller=MediaController(ctx)
+                controller.setAnchorView(this)
+                setMediaController(controller)
+                setVideoPath(file.absolutePath)
+                setOnPreparedListener{start()}
+            }
+        },
+        update={videoView->
+            if(videoView.tag!=file.absolutePath){
+                videoView.tag=file.absolutePath
+                videoView.setVideoPath(file.absolutePath)
+                videoView.start()
+            }
+        },
+        modifier=Modifier.fillMaxSize()
+    )
+}
+
+@Composable
+private fun ZoomablePreview(item:GalleryMedia,previewFile:File,isCurrent:Boolean,onZoomActive:(Boolean)->Unit){
     var scale by remember(item.sourceId,item.path){mutableFloatStateOf(1f)}
     var offsetX by remember(item.sourceId,item.path){mutableFloatStateOf(0f)}
     var offsetY by remember(item.sourceId,item.path){mutableFloatStateOf(0f)}
