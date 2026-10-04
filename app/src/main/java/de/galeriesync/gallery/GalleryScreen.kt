@@ -3,7 +3,9 @@ package de.galeriesync.gallery
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.awaitFirstDown
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -85,25 +88,27 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
     LaunchedEffect(selection){reloadLocal()}
 
     LaunchedEffect(Unit){
-        var sawActive=false
+        var activeId:java.util.UUID?=null
         while(true){
             val infos=withContext(Dispatchers.IO){
                 runCatching{workManager.getWorkInfosForUniqueWork(GalleryCacheWorker.UNIQUE_WORK).get()}.getOrDefault(emptyList())
             }
             val active=infos.firstOrNull{it.state==WorkInfo.State.RUNNING||it.state==WorkInfo.State.ENQUEUED||it.state==WorkInfo.State.BLOCKED}
             if(active!=null){
-                if(!sawActive||media.isEmpty())reloadLocal()
-                sawActive=true
+                val newlyAttached=activeId!=active.id
+                activeId=active.id
+                if(newlyAttached||media.isEmpty())reloadLocal()
                 working=true
                 applyWorkerProgress(active)
                 if(status.isBlank())status="Galerie-Aktualisierung läuft im Hintergrund …"
             }else{
-                if(sawActive){
-                    val finished=infos.firstOrNull{it.state==WorkInfo.State.SUCCEEDED}
+                val finishedId=activeId
+                if(finishedId!=null){
+                    val finished=infos.firstOrNull{it.id==finishedId}
                     finished?.outputData?.getString(GalleryCacheWorker.KEY_MESSAGE)?.let{status=it}
                     reloadLocal()
                 }
-                sawActive=false
+                activeId=null
                 working=false
             }
             delay(750)
@@ -394,7 +399,7 @@ private fun MediaDialog(item:GalleryMedia,repo:GalleryRepository,onClose:()->Uni
                     val pageItem=pages[page]
                     val preview=repo.previewFile(pageItem)
                     if(preview.exists()){
-                        ZoomablePreview(pageItem,preview.path,page==pagerState.currentPage){active->
+                        ZoomablePreview(pageItem,preview,page==pagerState.currentPage){active->
                             if(page==pagerState.currentPage)zoomActive=active
                         }
                     }else{
@@ -429,7 +434,7 @@ private fun MediaDialog(item:GalleryMedia,repo:GalleryRepository,onClose:()->Uni
 }
 
 @Composable
-private fun ZoomablePreview(item:GalleryMedia,previewPath:String,isCurrent:Boolean,onZoomActive:(Boolean)->Unit){
+private fun ZoomablePreview(item:GalleryMedia,previewFile:java.io.File,isCurrent:Boolean,onZoomActive:(Boolean)->Unit){
     var scale by remember(item.sourceId,item.path){mutableFloatStateOf(1f)}
     var offsetX by remember(item.sourceId,item.path){mutableFloatStateOf(0f)}
     var offsetY by remember(item.sourceId,item.path){mutableFloatStateOf(0f)}
@@ -445,23 +450,33 @@ private fun ZoomablePreview(item:GalleryMedia,previewPath:String,isCurrent:Boole
 
     Box(
         Modifier.fillMaxSize().pointerInput(item.sourceId,item.path){
-            detectTransformGestures{_,pan,zoom,_->
-                val newScale=(scale*zoom).coerceIn(1f,5f)
-                scale=newScale
-                if(newScale<=1.01f){
-                    offsetX=0f
-                    offsetY=0f
-                }else{
-                    offsetX+=pan.x
-                    offsetY+=pan.y
-                }
-                onZoomActive(newScale>1.01f)
+            awaitEachGesture{
+                awaitFirstDown(requireUnconsumed=false)
+                do{
+                    val event=awaitPointerEvent()
+                    val pressed=event.changes.count{it.pressed}
+                    if(pressed>=2||scale>1.01f){
+                        val zoom=event.calculateZoom()
+                        val pan=event.calculatePan()
+                        val newScale=(scale*zoom).coerceIn(1f,5f)
+                        scale=newScale
+                        if(newScale<=1.01f){
+                            offsetX=0f
+                            offsetY=0f
+                        }else{
+                            offsetX+=pan.x
+                            offsetY+=pan.y
+                        }
+                        onZoomActive(newScale>1.01f)
+                        event.changes.forEach{it.consume()}
+                    }
+                }while(event.changes.any{it.pressed})
             }
         },
         contentAlignment=Alignment.Center
     ){
         AsyncImage(
-            model=previewPath,
+            model=previewFile,
             contentDescription=item.name,
             modifier=Modifier.fillMaxSize().graphicsLayer{
                 scaleX=scale
