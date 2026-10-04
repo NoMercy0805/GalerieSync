@@ -25,7 +25,7 @@ class SyncService(private val context:Context){
   progress(SyncProgress(0,0,0,0,"Dateien werden geprüft …"))
   var lastScanAt=0L
   fun scanProgress(count:Int,label:String){val now=System.nanoTime();if(count==1||now-lastScanAt>=500_000_000L){lastScanAt=now;progress(SyncProgress(count,0,0,0,"$label · $count Dateien geprüft"))}}
-  val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders){scanProgress(it,"Handy wird gelesen")};val root=settings.remoteFolder.trim('/');val speedLimitBytes=SettingsStore(context).loadSpeedLimitKbps()*1024L
+  val local=MediaScanner(context.contentResolver).scan(settings.sourceFolders){scanProgress(it,"Handy wird gelesen")};val root=settings.remoteFolder.trim('/');val speedLimitBytes=SettingsStore(context).loadSpeedLimitKbps()*1024L;val concurrentUploads=context.getSharedPreferences("upload_settings",Context.MODE_PRIVATE).getInt("concurrent_uploads",2).coerceIn(1,6)
   var copied=0;var deleted=0;var skipped=0;var alreadyCurrent=0;var failed=0;var lastError:String?=null
   lastScanAt=0L
   val remoteInfo=smb.listRecursiveInfo(root){scanProgress(it,"NAS wird gelesen")}.map{info->SmbProvider.RemoteFileInfo(info.path.removePrefix(root+"/").trimStart('/'),info.size)}.filterNot{it.path.endsWith(".galeriesync-part")}
@@ -60,7 +60,7 @@ class SyncService(private val context:Context){
    val total=local.size
    val totalBytes=local.sumOf{it.size};var processedBytes=totalBytes-pending.sumOf{it.size}
    progress(SyncProgress(alreadyCurrent,total,processedBytes,totalBytes,if(pending.isEmpty())"Alles aktuell" else "$alreadyCurrent von $total bereits vorhanden · ${pending.size} ausstehend"))
-   val progressMutex=Mutex();val uploadSlots=Semaphore(2);var lastProgressAt=0L
+   val progressMutex=Mutex();val uploadSlots=Semaphore(concurrentUploads);var lastProgressAt=0L
    pending.map{m->async{
     uploadSlots.withPermit{
      val relative=structuredRelativePath(m.relativePath);val target=root+"/"+(remoteByKey[canonicalPath(relative)]?.path?:relative)
@@ -122,4 +122,3 @@ class SyncService(private val context:Context){
  }
  private fun downloadToMediaStore(smb:SmbProvider,remotePath:String,root:String){val name=remotePath.substringAfterLast('/');val mime=when(name.substringAfterLast('.',"").lowercase()){"jpg","jpeg"->"image/jpeg";"png"->"image/png";"webp"->"image/webp";"heic"->"image/heic";"mp4"->"video/mp4";"mov"->"video/quicktime";"mkv"->"video/x-matroska";else->return};val collection=if(mime.startsWith("video/"))MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI;val values=ContentValues().apply{put(MediaStore.MediaColumns.DISPLAY_NAME,name);put(MediaStore.MediaColumns.MIME_TYPE,mime);val rel=remotePath.removePrefix(root).trimStart('/').substringBeforeLast('/',"");val base=if(mime.startsWith("video/"))"Movies/GalerieSync" else "Pictures/GalerieSync";put(MediaStore.MediaColumns.RELATIVE_PATH,if(rel.isBlank())base else "$base/$rel");put(MediaStore.MediaColumns.IS_PENDING,1)};val uri=context.contentResolver.insert(collection,values)?:error("MediaStore insert fehlgeschlagen");try{context.contentResolver.openOutputStream(uri)!!.use{out->BufferedOutputStream(out).use{dst->BufferedInputStream(smb.openInput(remotePath)).use{it.copyTo(dst)}}};values.clear();values.put(MediaStore.MediaColumns.IS_PENDING,0);context.contentResolver.update(uri,values,null,null)}catch(t:Throwable){context.contentResolver.delete(uri,null,null);throw t}}
 }
-
