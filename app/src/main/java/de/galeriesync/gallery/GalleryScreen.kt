@@ -10,6 +10,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -337,11 +339,25 @@ private fun MediaTile(item:GalleryMedia,repo:GalleryRepository,onClick:()->Unit)
 
 @Composable
 private fun MediaDialog(item:GalleryMedia,repo:GalleryRepository,onClose:()->Unit){
-    val preview=repo.previewFile(item)
+    val itemFolder=item.relativePath().substringBeforeLast('/',"")
+    val pages=remember(item.sourceId,item.path,itemFolder){
+        if(item.video)listOf(item)
+        else repo.loadIndex().asSequence()
+            .filter{!it.video&&it.sourceId==item.sourceId&&it.relativePath().substringBeforeLast('/',"")==itemFolder}
+            .sortedBy{it.name.lowercase()}
+            .toList()
+            .ifEmpty{listOf(item)}
+    }
+    val initialPage=remember(item.sourceId,item.path,pages){
+        pages.indexOfFirst{it.sourceId==item.sourceId&&it.path==item.path}.coerceAtLeast(0)
+    }
+    val pagerState=rememberPagerState(initialPage=initialPage,pageCount={pages.size})
+    val currentItem=pages[pagerState.currentPage.coerceIn(0,pages.lastIndex)]
+
     Dialog(onDismissRequest=onClose,properties=DialogProperties(usePlatformDefaultWidth=false)){
         Box(Modifier.fillMaxSize().background(Color.Black)){
-            when{
-                item.video->Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
+            if(item.video){
+                Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
                     Column(horizontalAlignment=Alignment.CenterHorizontally){
                         Text("▶",fontSize=64.sp,color=Color.White)
                         Spacer(Modifier.height(12.dp))
@@ -349,12 +365,20 @@ private fun MediaDialog(item:GalleryMedia,repo:GalleryRepository,onClose:()->Uni
                         Text("Das Originalvideo wird nicht geladen.",fontSize=12.sp,color=Color.White.copy(alpha=0.7f))
                     }
                 }
-                preview.exists()->AsyncImage(model=preview,contentDescription=item.name,modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Fit)
-                else->Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
-                    Column(horizontalAlignment=Alignment.CenterHorizontally){
-                        CircularProgressIndicator(color=Color.White)
-                        Spacer(Modifier.height(12.dp))
-                        Text("Offline-Vorschau wird noch erstellt",fontSize=12.sp,color=Color.White)
+            }else{
+                HorizontalPager(state=pagerState,modifier=Modifier.fillMaxSize()) { page->
+                    val pageItem=pages[page]
+                    val preview=repo.previewFile(pageItem)
+                    if(preview.exists()){
+                        AsyncImage(model=preview,contentDescription=pageItem.name,modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Fit)
+                    }else{
+                        Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
+                            Column(horizontalAlignment=Alignment.CenterHorizontally){
+                                CircularProgressIndicator(color=Color.White)
+                                Spacer(Modifier.height(12.dp))
+                                Text("Offline-Vorschau wird noch erstellt",fontSize=12.sp,color=Color.White)
+                            }
+                        }
                     }
                 }
             }
@@ -364,14 +388,15 @@ private fun MediaDialog(item:GalleryMedia,repo:GalleryRepository,onClose:()->Uni
                 verticalAlignment=Alignment.CenterVertically
             ){
                 TextButton(onClick=onClose){Text("×",fontSize=34.sp,color=Color.White)}
-                Text(item.name,Modifier.weight(1f),fontWeight=FontWeight.SemiBold,color=Color.White,maxLines=1,overflow=TextOverflow.Ellipsis)
+                Text(currentItem.name,Modifier.weight(1f),fontWeight=FontWeight.SemiBold,color=Color.White,maxLines=1,overflow=TextOverflow.Ellipsis)
+                if(!item.video&&pages.size>1)Text("${pagerState.currentPage+1} / ${pages.size}",fontSize=12.sp,color=Color.White.copy(alpha=0.8f),modifier=Modifier.padding(end=10.dp))
             }
 
             Column(
                 Modifier.fillMaxWidth().align(Alignment.BottomCenter).background(Color.Black.copy(alpha=0.45f)).navigationBarsPadding().padding(horizontal=18.dp,vertical=12.dp)
             ){
-                Text(item.relativePath(),fontSize=11.sp,color=Color.White.copy(alpha=0.8f),maxLines=2,overflow=TextOverflow.Ellipsis)
-                if(!item.video)Text("Vollbild aus der verkleinerten Offline-Vorschau · Original wird nie geladen",fontSize=10.sp,color=Color.White.copy(alpha=0.65f))
+                Text(currentItem.relativePath(),fontSize=11.sp,color=Color.White.copy(alpha=0.8f),maxLines=2,overflow=TextOverflow.Ellipsis)
+                if(!currentItem.video)Text("Nach links/rechts wischen für weitere Bilder · verkleinerte Offline-Vorschau · Original wird nie geladen",fontSize=10.sp,color=Color.White.copy(alpha=0.65f))
             }
         }
     }
