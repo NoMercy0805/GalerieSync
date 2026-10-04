@@ -29,7 +29,7 @@ class GalleryCacheWorker(context:Context,params:WorkerParameters):CoroutineWorke
 
     private fun ensureChannel(){
         if(Build.VERSION.SDK_INT>=26){
-            nm.createNotificationChannel(NotificationChannel(CHANNEL,"Galerie-Vorschauen",NotificationManager.IMPORTANCE_LOW))
+            nm.createNotificationChannel(NotificationChannel(CHANNEL,"Galerie-Offline-Medien",NotificationManager.IMPORTANCE_LOW))
         }
     }
 
@@ -52,7 +52,7 @@ class GalleryCacheWorker(context:Context,params:WorkerParameters):CoroutineWorke
 
     private fun foreground(text:String,percent:Int?=null):ForegroundInfo{
         ensureChannel()
-        val n=notification("GalerieSync erstellt Vorschauen",text,percent,true)
+        val n=notification("GalerieSync bereitet Offline-Medien vor",text,percent,true)
         return if(Build.VERSION.SDK_INT>=29){
             ForegroundInfo(NOTIFICATION_RUNNING,n,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         }else ForegroundInfo(NOTIFICATION_RUNNING,n)
@@ -60,7 +60,7 @@ class GalleryCacheWorker(context:Context,params:WorkerParameters):CoroutineWorke
 
     private fun updateForegroundNotification(text:String,percent:Int?=null){
         ensureChannel()
-        nm.notify(NOTIFICATION_RUNNING,notification("GalerieSync erstellt Vorschauen",text,percent,true))
+        nm.notify(NOTIFICATION_RUNNING,notification("GalerieSync bereitet Offline-Medien vor",text,percent,true))
     }
 
     private fun notifyDone(title:String,text:String){
@@ -102,7 +102,7 @@ class GalleryCacheWorker(context:Context,params:WorkerParameters):CoroutineWorke
                 val cache=repo.cacheMissingPreviews(profiles,scan.items,setOf(selection.sourceId)){done,total,name->
                     val open=(total-done).coerceAtLeast(0)
                     val detail=if(name.isBlank())"" else " · $name"
-                    val message="Offline-Vorschauen: $done fertig · $open offen · $total gesamt$detail"
+                    val message="Offline-Medien: $done fertig · $open offen · $total gesamt$detail"
                     val percent=if(total>0)(done*100/total).coerceIn(0,100) else 0
                     setProgress(workDataOf(
                         KEY_MESSAGE to message,
@@ -117,10 +117,10 @@ class GalleryCacheWorker(context:Context,params:WorkerParameters):CoroutineWorke
 
                 val suffix=buildList{
                     if(scan.errors.isNotEmpty())add("${scan.errors.size} NAS-Bereich(e) nicht erreichbar")
-                    if(cache.failed>0)add("${cache.failed} Vorschau(en) konnten nicht erstellt werden")
+                    if(cache.failed>0)add("${cache.failed} Medium/Medien konnten nicht vorbereitet werden")
                 }
-                val message=if(suffix.isEmpty())"Galerie und Offline-Vorschauen sind aktuell" else "Galerie aktualisiert · "+suffix.joinToString(" · ")
-                val summary="${cache.done} von ${cache.total} Bildern offline vorbereitet"+if(cache.failed>0)" · ${cache.failed} Fehler" else ""
+                val message=if(suffix.isEmpty())"Galerie und Offline-Medien sind aktuell" else "Galerie aktualisiert · "+suffix.joinToString(" · ")
+                val summary="${cache.done} von ${cache.total} Medien offline vorbereitet"+if(cache.failed>0)" · ${cache.failed} Fehler" else ""
                 notifyDone("Galerie bereit",summary)
                 Result.success(workDataOf(
                     KEY_MESSAGE to message,
