@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.work.*
 import coil.compose.AsyncImage
 import de.galeriesync.data.NasSettings
@@ -46,6 +47,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
     var progressDone by remember{mutableIntStateOf(0)}
     var progressTotal by remember{mutableIntStateOf(0)}
     var pickerOpen by remember{mutableStateOf(selection==null)}
+    var deleteOfflineConfirm by remember{mutableStateOf(false)}
 
     fun reloadLocal(){
         media=repo.loadIndex()
@@ -114,6 +116,13 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
                         Text("/"+selection!!.folder.ifBlank{""},fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)
                     }
                     TextButton(onClick={startRefresh()},enabled=!working){Text(if(working)"Läuft …" else "Aktualisieren")}
+                }
+            }
+            if(progressDone>0){
+                Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.End){
+                    TextButton(onClick={deleteOfflineConfirm=true},enabled=!working){
+                        Text("Offline-Daten löschen",color=MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }
@@ -186,6 +195,28 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
                 pickerOpen=false
                 startRefresh()
             }
+        )
+    }
+
+    if(deleteOfflineConfirm){
+        AlertDialog(
+            onDismissRequest={deleteOfflineConfirm=false},
+            title={Text("Offline-Daten löschen?")},
+            text={Text("Alle lokal gespeicherten Galerie-Vorschauen werden gelöscht. NAS-Dateien, Ordnerauswahl und Synchronisation bleiben unverändert.")},
+            confirmButton={
+                TextButton(onClick={
+                    deleteOfflineConfirm=false
+                    selected=null
+                    scope.launch{
+                        val deleted=withContext(Dispatchers.IO){
+                            media.asSequence().filterNot{it.video}.map{repo.previewFile(it)}.count{file->file.exists()&&file.delete()}
+                        }
+                        reloadLocal()
+                        status="$deleted Offline-Vorschau(en) gelöscht"
+                    }
+                }){Text("Löschen",color=MaterialTheme.colorScheme.error)}
+            },
+            dismissButton={TextButton(onClick={deleteOfflineConfirm=false}){Text("Abbrechen")}}
         )
     }
 
@@ -307,19 +338,40 @@ private fun MediaTile(item:GalleryMedia,repo:GalleryRepository,onClick:()->Unit)
 @Composable
 private fun MediaDialog(item:GalleryMedia,repo:GalleryRepository,onClose:()->Unit){
     val preview=repo.previewFile(item)
-    Dialog(onDismissRequest=onClose){
-        Surface(shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface){
-            Column(Modifier.fillMaxWidth().padding(12.dp)){
-                when{
-                    item.video->Box(Modifier.fillMaxWidth().height(280.dp).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){Text("▶",fontSize=50.sp,color=MaterialTheme.colorScheme.primary);Text("Video",fontWeight=FontWeight.Bold);Text("Das Originalvideo wird nicht geladen.",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
-                    preview.exists()->AsyncImage(model=preview,contentDescription=item.name,modifier=Modifier.fillMaxWidth().heightIn(max=600.dp),contentScale=ContentScale.Fit)
-                    else->Box(Modifier.fillMaxWidth().height(280.dp),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){CircularProgressIndicator();Spacer(Modifier.height(12.dp));Text("Offline-Vorschau wird noch erstellt",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+    Dialog(onDismissRequest=onClose,properties=DialogProperties(usePlatformDefaultWidth=false)){
+        Box(Modifier.fillMaxSize().background(Color.Black)){
+            when{
+                item.video->Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
+                    Column(horizontalAlignment=Alignment.CenterHorizontally){
+                        Text("▶",fontSize=64.sp,color=Color.White)
+                        Spacer(Modifier.height(12.dp))
+                        Text("Video",fontWeight=FontWeight.Bold,color=Color.White)
+                        Text("Das Originalvideo wird nicht geladen.",fontSize=12.sp,color=Color.White.copy(alpha=0.7f))
+                    }
                 }
-                Spacer(Modifier.height(10.dp))
-                Text(item.name,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis)
-                Text(item.relativePath(),fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)
-                if(!item.video)Text("Angezeigt wird immer nur die verkleinerte lokale Vorschau – nie das Originalbild.",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick=onClose,modifier=Modifier.align(Alignment.End)){Text("Schließen")}
+                preview.exists()->AsyncImage(model=preview,contentDescription=item.name,modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Fit)
+                else->Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
+                    Column(horizontalAlignment=Alignment.CenterHorizontally){
+                        CircularProgressIndicator(color=Color.White)
+                        Spacer(Modifier.height(12.dp))
+                        Text("Offline-Vorschau wird noch erstellt",fontSize=12.sp,color=Color.White)
+                    }
+                }
+            }
+
+            Row(
+                Modifier.fillMaxWidth().align(Alignment.TopCenter).background(Color.Black.copy(alpha=0.45f)).statusBarsPadding().padding(horizontal=8.dp,vertical=4.dp),
+                verticalAlignment=Alignment.CenterVertically
+            ){
+                TextButton(onClick=onClose){Text("×",fontSize=34.sp,color=Color.White)}
+                Text(item.name,Modifier.weight(1f),fontWeight=FontWeight.SemiBold,color=Color.White,maxLines=1,overflow=TextOverflow.Ellipsis)
+            }
+
+            Column(
+                Modifier.fillMaxWidth().align(Alignment.BottomCenter).background(Color.Black.copy(alpha=0.45f)).navigationBarsPadding().padding(horizontal=18.dp,vertical=12.dp)
+            ){
+                Text(item.relativePath(),fontSize=11.sp,color=Color.White.copy(alpha=0.8f),maxLines=2,overflow=TextOverflow.Ellipsis)
+                if(!item.video)Text("Vollbild aus der verkleinerten Offline-Vorschau · Original wird nie geladen",fontSize=10.sp,color=Color.White.copy(alpha=0.65f))
             }
         }
     }
