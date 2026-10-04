@@ -5,12 +5,14 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
+import android.media.MediaMetadataRetriever
 import de.galeriesync.data.NasSettings
 import de.galeriesync.sync.SmbProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import org.json.JSONArray
@@ -57,6 +59,7 @@ class GalleryRepository(private val context:Context){
     companion object{
         private val lock=Any()
         private const val PREVIEW_MAX=1280
+        private const val VIDEO_THUMB_MAX=640
         private const val PREVIEW_QUALITY=78
         private const val PREVIEW_PARALLELISM=3
         private const val PREFS="gallery_settings"
@@ -68,6 +71,7 @@ class GalleryRepository(private val context:Context){
 
     private val cacheRoot=File(context.filesDir,"nas_gallery").apply{mkdirs()}
     private val previewRoot=File(cacheRoot,"previews").apply{mkdirs()}
+    private val videoRoot=File(cacheRoot,"videos").apply{mkdirs()}
     private val tempRoot=File(context.cacheDir,"galeriesync_gallery").apply{mkdirs()}
     private val indexFile=File(cacheRoot,"index.json")
     private val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
@@ -142,7 +146,7 @@ class GalleryRepository(private val context:Context){
                 }
             }.distinctBy{it.sourceId+"|"+it.path}.sortedBy{it.path.lowercase()}
             saveIndex(found)
-            pruneObsoletePreviews(found)
+            pruneObsoleteOfflineData(found)
             GalleryIndexResult(found,setOf(profile.id),emptyList())
         }.getOrElse{e->
             GalleryIndexResult(loadIndex(),emptySet(),listOf("$title: "+(e.message?:e.javaClass.simpleName)))
@@ -150,10 +154,18 @@ class GalleryRepository(private val context:Context){
     }
 
     fun previewFile(item:GalleryMedia):File=File(previewRoot,previewName(item))
+    fun offlineVideoFile(item:GalleryMedia):File=File(videoRoot,videoName(item))
 
     fun previewProgress(items:List<GalleryMedia>):Pair<Int,Int>{
-        val images=items.filterNot{it.video}
-        return images.count{previewFile(it).exists()} to images.size
+        return items.count{item->if(item.video)offlineVideoFile(item).exists() else previewFile(item).exists()} to items.size
+    }
+
+    fun clearOfflineData():Int{
+        var deleted=0
+        previewRoot.listFiles()?.forEach{if(it.isFile&&it.delete())deleted++}
+        videoRoot.listFiles()?.forEach{if(it.isFile&&it.delete())deleted++}
+        tempRoot.listFiles()?.forEach{if(it.isFile)it.delete()}
+        return deleted
     }
 
     suspend fun cacheMissingPreviews(
@@ -163,21 +175,27 @@ class GalleryRepository(private val context:Context){
         onProgress:suspend (done:Int,total:Int,name:String)->Unit
     ):GalleryCacheResult=coroutineScope{
         val providers=profiles.filter{it.id in allowedSources}.associate{it.id to SmbProvider(it)}
-        val images=items.filter{!it.video&&it.sourceId in allowedSources}
-        val missing=images.filterNot{previewFile(it).exists()}
-        val total=images.size
-        val done=AtomicInteger(total-missing.size)
+        val eligible=items.filter{it.sourceId in allowedSources}
+        val missingImages=eligible.filter{!it.video&&!previewFile(it).exists()}
+        val missingVideos=eligible.filter{it.video&&!offlineVideoFile(it).exists()}
+        val total=eligible.size
+        val done=AtomicInteger(total-missingImages.size-missingVideos.size)
         val failed=AtomicInteger(0)
         val slots=Semaphore(PREVIEW_PARALLELISM)
         val progressMutex=Mutex()
+        val reportScope=this
 
         suspend fun report(name:String){
             progressMutex.lock()
             try{onProgress(done.get(),total,name)}finally{progressMutex.unlock()}
         }
 
+        eligible.filter{it.video&&offlineVideoFile(it).exists()&&!previewFile(it).exists()}.forEach{
+            runCatching{createVideoThumbnail(offlineVideoFile(it),previewFile(it))}
+        }
+
         report("")
-        missing.map{item->
+        missingImages.map{item->
             async(Dispatchers.IO){
                 slots.acquire()
                 val ok=try{
@@ -188,6 +206,18 @@ class GalleryRepository(private val context:Context){
                 report(item.name)
             }
         }.awaitAll()
+
+        for(item in missingVideos){
+            val smb=providers[item.sourceId]
+            report("Video wird vorbereitet · ${item.name}")
+            val ok=smb!=null&&runCatching{
+                createOfflineVideo(smb,item,offlineVideoFile(item)){percent->
+                    reportScope.launch{report("Video $percent % · ${item.name}")}
+                }
+            }.getOrDefault(false)
+            if(ok)done.incrementAndGet() else failed.incrementAndGet()
+            report(item.name)
+        }
         GalleryCacheResult(done.get(),total,failed.get())
     }
 
@@ -245,14 +275,68 @@ class GalleryRepository(private val context:Context){
         }
     }
 
-    private fun previewName(item:GalleryMedia):String{
-        val raw=item.sourceId+"|"+item.path+"|"+item.size
-        val digest=MessageDigest.getInstance("SHA-256").digest(raw.toByteArray())
-        return digest.joinToString(""){"%02x".format(it)}+".jpg"
+    private suspend fun createOfflineVideo(smb:SmbProvider,item:GalleryMedia,out:File,onProgress:(Int)->Unit):Boolean{
+        if(out.exists())return true
+        val ext=item.path.substringAfterLast('.',"mp4").lowercase().takeIf{it.matches(Regex("[a-z0-9]{2,5}"))}?:"mp4"
+        val source=File.createTempFile("gallery_video_",".$ext",tempRoot)
+        val tmp=File(videoRoot,out.name+".tmp.mp4")
+        try{
+            smb.openInput(item.path).use{input->FileOutputStream(source).use{output->input.copyTo(output,512*1024)}}
+            if(tmp.exists())tmp.delete()
+            val encoded=GalleryVideoTranscoder(context).transcode(source,tmp,onProgress)
+            if(!encoded||!tmp.exists()||tmp.length()==0L)return false
+            if(out.exists())out.delete()
+            if(!tmp.renameTo(out)){tmp.copyTo(out,true);tmp.delete()}
+            if(out.exists())runCatching{createVideoThumbnail(out,previewFile(item))}
+            return out.exists()&&out.length()>0L
+        }finally{
+            if(source.exists())source.delete()
+            if(tmp.exists())tmp.delete()
+        }
     }
 
-    private fun pruneObsoletePreviews(items:List<GalleryMedia>){
-        val expected=items.asSequence().filterNot{it.video}.map{previewName(it)}.toHashSet()
-        previewRoot.listFiles()?.forEach{f->if(f.isFile&&f.extension.equals("jpg",true)&&f.name !in expected)f.delete()}
+    private fun createVideoThumbnail(video:File,out:File):Boolean{
+        if(out.exists())return true
+        val retriever=MediaMetadataRetriever()
+        var frame:Bitmap?=null
+        var rotated:Bitmap?=null
+        var scaled:Bitmap?=null
+        val tmp=File(previewRoot,out.name+".tmp")
+        try{
+            retriever.setDataSource(video.absolutePath)
+            frame=retriever.getFrameAtTime(0L,MediaMetadataRetriever.OPTION_CLOSEST_SYNC)?:return false
+            val rotation=retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toFloatOrNull()?:0f
+            rotated=if(rotation!=0f)Bitmap.createBitmap(frame!!,0,0,frame!!.width,frame!!.height,Matrix().apply{postRotate(rotation)},true) else frame
+            val maxDim=max(rotated!!.width,rotated!!.height).coerceAtLeast(1)
+            val factor=(VIDEO_THUMB_MAX.toFloat()/maxDim).coerceAtMost(1f)
+            scaled=if(factor<1f)Bitmap.createScaledBitmap(rotated!!,(rotated!!.width*factor).roundToInt().coerceAtLeast(1),(rotated!!.height*factor).roundToInt().coerceAtLeast(1),true) else rotated
+            val written=FileOutputStream(tmp).use{scaled!!.compress(Bitmap.CompressFormat.JPEG,PREVIEW_QUALITY,it)}
+            if(!written)return false
+            if(out.exists())out.delete()
+            if(!tmp.renameTo(out)){tmp.copyTo(out,true);tmp.delete()}
+            return out.exists()
+        }finally{
+            retriever.release()
+            if(scaled!=null&&scaled!==rotated&&!scaled!!.isRecycled)scaled!!.recycle()
+            if(rotated!=null&&rotated!==frame&&!rotated!!.isRecycled)rotated!!.recycle()
+            if(frame!=null&&!frame!!.isRecycled)frame!!.recycle()
+            if(tmp.exists())tmp.delete()
+        }
+    }
+
+    private fun mediaHash(item:GalleryMedia):String{
+        val raw=item.sourceId+"|"+item.path+"|"+item.size
+        val digest=MessageDigest.getInstance("SHA-256").digest(raw.toByteArray())
+        return digest.joinToString(""){"%02x".format(it)}
+    }
+
+    private fun previewName(item:GalleryMedia):String=mediaHash(item)+".jpg"
+    private fun videoName(item:GalleryMedia):String=mediaHash(item)+".mp4"
+
+    private fun pruneObsoleteOfflineData(items:List<GalleryMedia>){
+        val expectedPreviews=items.asSequence().map{previewName(it)}.toHashSet()
+        val expectedVideos=items.asSequence().filter{it.video}.map{videoName(it)}.toHashSet()
+        previewRoot.listFiles()?.forEach{f->if(f.isFile&&f.extension.equals("jpg",true)&&f.name !in expectedPreviews)f.delete()}
+        videoRoot.listFiles()?.forEach{f->if(f.isFile&&f.extension.equals("mp4",true)&&f.name !in expectedVideos)f.delete()}
     }
 }
