@@ -7,11 +7,18 @@ import android.graphics.Matrix
 import android.media.ExifInterface
 import de.galeriesync.data.NasSettings
 import de.galeriesync.sync.SmbProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -51,6 +58,7 @@ class GalleryRepository(private val context:Context){
         private val lock=Any()
         private const val PREVIEW_MAX=1280
         private const val PREVIEW_QUALITY=78
+        private const val PREVIEW_PARALLELISM=3
         private const val PREFS="gallery_settings"
         private const val KEY_SOURCE="source_id"
         private const val KEY_FOLDER="folder"
@@ -60,6 +68,7 @@ class GalleryRepository(private val context:Context){
 
     private val cacheRoot=File(context.filesDir,"nas_gallery").apply{mkdirs()}
     private val previewRoot=File(cacheRoot,"previews").apply{mkdirs()}
+    private val tempRoot=File(context.cacheDir,"galeriesync_gallery").apply{mkdirs()}
     private val indexFile=File(cacheRoot,"index.json")
     private val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
 
@@ -152,64 +161,88 @@ class GalleryRepository(private val context:Context){
         items:List<GalleryMedia>,
         allowedSources:Set<String>,
         onProgress:suspend (done:Int,total:Int,name:String)->Unit
-    ):GalleryCacheResult{
-        val profileById=profiles.associateBy{it.id}
-        val providers=mutableMapOf<String,SmbProvider>()
+    ):GalleryCacheResult=coroutineScope{
+        val providers=profiles.filter{it.id in allowedSources}.associate{it.id to SmbProvider(it)}
         val images=items.filter{!it.video&&it.sourceId in allowedSources}
+        val missing=images.filterNot{previewFile(it).exists()}
         val total=images.size
-        var done=images.count{previewFile(it).exists()}
-        var failed=0
-        onProgress(done,total,"")
-        images.filterNot{previewFile(it).exists()}.forEach{item->
-            val p=profileById[item.sourceId]
-            val ok=if(p==null)false else runCatching{
-                val smb=providers.getOrPut(item.sourceId){SmbProvider(p)}
-                createPreview(smb,item.path,previewFile(item))
-            }.getOrDefault(false)
-            if(ok)done++ else failed++
-            onProgress(done,total,item.name)
+        val done=AtomicInteger(total-missing.size)
+        val failed=AtomicInteger(0)
+        val slots=Semaphore(PREVIEW_PARALLELISM)
+        val progressMutex=Mutex()
+
+        suspend fun report(name:String){
+            progressMutex.lock()
+            try{onProgress(done.get(),total,name)}finally{progressMutex.unlock()}
         }
-        return GalleryCacheResult(done,total,failed)
+
+        report("")
+        missing.map{item->
+            async(Dispatchers.IO){
+                slots.acquire()
+                val ok=try{
+                    val smb=providers[item.sourceId]
+                    smb!=null&&runCatching{createPreview(smb,item.path,previewFile(item))}.getOrDefault(false)
+                }finally{slots.release()}
+                if(ok)done.incrementAndGet() else failed.incrementAndGet()
+                report(item.name)
+            }
+        }.awaitAll()
+        GalleryCacheResult(done.get(),total,failed.get())
     }
 
     private fun createPreview(smb:SmbProvider,path:String,out:File):Boolean{
         if(out.exists())return true
-        val orientation=runCatching{
-            smb.openInput(path).use{input->ExifInterface(input).getAttributeInt(ExifInterface.TAG_ORIENTATION,ExifInterface.ORIENTATION_NORMAL)}
-        }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
-        val bounds=BitmapFactory.Options().apply{inJustDecodeBounds=true}
-        smb.openInput(path).use{BitmapFactory.decodeStream(it,null,bounds)}
-        if(bounds.outWidth<=0||bounds.outHeight<=0)return false
-        var sample=1
-        while(bounds.outWidth/sample>1800||bounds.outHeight/sample>1800)sample*=2
-        val decoded=smb.openInput(path).use{BitmapFactory.decodeStream(it,null,BitmapFactory.Options().apply{inSampleSize=sample})}?:return false
-        val matrix=Matrix().apply{
-            when(orientation){
-                ExifInterface.ORIENTATION_ROTATE_90->postRotate(90f)
-                ExifInterface.ORIENTATION_ROTATE_180->postRotate(180f)
-                ExifInterface.ORIENTATION_ROTATE_270->postRotate(270f)
-                ExifInterface.ORIENTATION_FLIP_HORIZONTAL->postScale(-1f,1f)
-                ExifInterface.ORIENTATION_FLIP_VERTICAL->postScale(1f,-1f)
-                ExifInterface.ORIENTATION_TRANSPOSE->{postRotate(90f);postScale(-1f,1f)}
-                ExifInterface.ORIENTATION_TRANSVERSE->{postRotate(270f);postScale(-1f,1f)}
-            }
-        }
-        val rotated=if(!matrix.isIdentity)Bitmap.createBitmap(decoded,0,0,decoded.width,decoded.height,matrix,true) else decoded
-        val maxDim=max(rotated.width,rotated.height).coerceAtLeast(1)
-        val factor=if(maxDim>PREVIEW_MAX)PREVIEW_MAX.toFloat()/maxDim else 0.85f
-        val targetW=(rotated.width*factor).roundToInt().coerceAtLeast(1)
-        val targetH=(rotated.height*factor).roundToInt().coerceAtLeast(1)
-        val preview=Bitmap.createScaledBitmap(rotated,targetW,targetH,true)
+        val source=File.createTempFile("gallery_",".source",tempRoot)
         val tmp=File(previewRoot,out.name+".tmp")
-        val written=FileOutputStream(tmp).use{preview.compress(Bitmap.CompressFormat.JPEG,PREVIEW_QUALITY,it)}
-        if(written){
+        var decoded:Bitmap?=null
+        var rotated:Bitmap?=null
+        var preview:Bitmap?=null
+        try{
+            smb.openInput(path).use{input->FileOutputStream(source).use{output->input.copyTo(output,256*1024)}}
+
+            val orientation=runCatching{
+                ExifInterface(source.absolutePath).getAttributeInt(ExifInterface.TAG_ORIENTATION,ExifInterface.ORIENTATION_NORMAL)
+            }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+
+            val bounds=BitmapFactory.Options().apply{inJustDecodeBounds=true}
+            BitmapFactory.decodeFile(source.absolutePath,bounds)
+            if(bounds.outWidth<=0||bounds.outHeight<=0)return false
+
+            var sample=1
+            while(bounds.outWidth/sample>1800||bounds.outHeight/sample>1800)sample*=2
+            decoded=BitmapFactory.decodeFile(source.absolutePath,BitmapFactory.Options().apply{inSampleSize=sample})?:return false
+
+            val matrix=Matrix().apply{
+                when(orientation){
+                    ExifInterface.ORIENTATION_ROTATE_90->postRotate(90f)
+                    ExifInterface.ORIENTATION_ROTATE_180->postRotate(180f)
+                    ExifInterface.ORIENTATION_ROTATE_270->postRotate(270f)
+                    ExifInterface.ORIENTATION_FLIP_HORIZONTAL->postScale(-1f,1f)
+                    ExifInterface.ORIENTATION_FLIP_VERTICAL->postScale(1f,-1f)
+                    ExifInterface.ORIENTATION_TRANSPOSE->{postRotate(90f);postScale(-1f,1f)}
+                    ExifInterface.ORIENTATION_TRANSVERSE->{postRotate(270f);postScale(-1f,1f)}
+                }
+            }
+            rotated=if(!matrix.isIdentity)Bitmap.createBitmap(decoded!!,0,0,decoded!!.width,decoded!!.height,matrix,true) else decoded
+            val maxDim=max(rotated!!.width,rotated!!.height).coerceAtLeast(1)
+            val factor=if(maxDim>PREVIEW_MAX)PREVIEW_MAX.toFloat()/maxDim else 0.85f
+            val targetW=(rotated!!.width*factor).roundToInt().coerceAtLeast(1)
+            val targetH=(rotated!!.height*factor).roundToInt().coerceAtLeast(1)
+            preview=Bitmap.createScaledBitmap(rotated!!,targetW,targetH,true)
+
+            val written=FileOutputStream(tmp).use{preview!!.compress(Bitmap.CompressFormat.JPEG,PREVIEW_QUALITY,it)}
+            if(!written)return false
             if(out.exists())out.delete()
             if(!tmp.renameTo(out)){tmp.copyTo(out,true);tmp.delete()}
-        }else tmp.delete()
-        if(preview!==rotated)preview.recycle()
-        if(rotated!==decoded)rotated.recycle()
-        decoded.recycle()
-        return written&&out.exists()
+            return out.exists()
+        }finally{
+            if(preview!=null&&preview!==rotated&&!preview!!.isRecycled)preview!!.recycle()
+            if(rotated!=null&&rotated!==decoded&&!rotated!!.isRecycled)rotated!!.recycle()
+            if(decoded!=null&&!decoded!!.isRecycled)decoded!!.recycle()
+            if(source.exists())source.delete()
+            if(tmp.exists())tmp.delete()
+        }
     }
 
     private fun previewName(item:GalleryMedia):String{
