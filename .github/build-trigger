@@ -1,1 +1,1 @@
-GalerieSync 0.4.4: avoid empty gallery flash on tab switch and rotation
+GalerieSync 0.4.4: keep MainActivity alive across rotation
