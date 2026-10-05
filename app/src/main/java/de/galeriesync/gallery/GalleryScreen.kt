@@ -53,14 +53,16 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
     val repo=remember{GalleryRepository(context)}
     val scope=rememberCoroutineScope()
     val workManager=remember{WorkManager.getInstance(context)}
+    val initialMedia=remember(repo){repo.loadIndex()}
+    val initialProgress=remember(repo,initialMedia){repo.previewProgress(initialMedia)}
     var selection by remember{mutableStateOf(repo.loadSelection())}
-    var media by remember{mutableStateOf(emptyList<GalleryMedia>())}
+    var media by remember{mutableStateOf(initialMedia)}
     var folder by rememberSaveable{mutableStateOf("")}
     var selectedKey by rememberSaveable{mutableStateOf<String?>(null)}
     var status by remember{mutableStateOf("")}
     var working by remember{mutableStateOf(false)}
-    var progressDone by remember{mutableIntStateOf(0)}
-    var progressTotal by remember{mutableIntStateOf(0)}
+    var progressDone by remember{mutableIntStateOf(initialProgress.first)}
+    var progressTotal by remember{mutableIntStateOf(initialProgress.second)}
     var pickerOpen by remember{mutableStateOf(selection==null)}
     var deleteOfflineConfirm by remember{mutableStateOf(false)}
     var galleryMenuOpen by remember{mutableStateOf(false)}
