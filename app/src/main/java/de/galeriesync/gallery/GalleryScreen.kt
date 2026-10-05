@@ -20,6 +20,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,6 +45,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 private data class GalleryFolder(val name:String,val path:String,val count:Int)
+private fun mediaKey(item:GalleryMedia)=item.sourceId+"|"+item.path
 
 @Composable
 fun NasGalleryScreen(profiles:List<NasSettings>){
@@ -53,8 +55,8 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
     val workManager=remember{WorkManager.getInstance(context)}
     var selection by remember{mutableStateOf(repo.loadSelection())}
     var media by remember{mutableStateOf(emptyList<GalleryMedia>())}
-    var folder by remember{mutableStateOf("")}
-    var selected by remember{mutableStateOf<GalleryMedia?>(null)}
+    var folder by rememberSaveable{mutableStateOf("")}
+    var selectedKey by rememberSaveable{mutableStateOf<String?>(null)}
     var status by remember{mutableStateOf("")}
     var working by remember{mutableStateOf(false)}
     var progressDone by remember{mutableIntStateOf(0)}
@@ -62,6 +64,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
     var pickerOpen by remember{mutableStateOf(selection==null)}
     var deleteOfflineConfirm by remember{mutableStateOf(false)}
     var galleryMenuOpen by remember{mutableStateOf(false)}
+    val selected=remember(media,selectedKey){selectedKey?.let{key->media.firstOrNull{mediaKey(it)==key}}}
 
     fun reloadLocal(){
         media=repo.loadIndex()
@@ -206,7 +209,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
                 }else{
                     LazyVerticalGrid(columns=GridCells.Adaptive(110.dp),modifier=Modifier.fillMaxSize().padding(5.dp),horizontalArrangement=Arrangement.spacedBy(5.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
                         items(contents.first,key={"folder:"+it.path}){f->FolderTile(f){folder=f.path}}
-                        items(contents.second,key={it.sourceId+"|"+it.path}){item->MediaTile(item,repo){selected=item}}
+                        items(contents.second,key={it.sourceId+"|"+it.path}){item->MediaTile(item,repo){selectedKey=mediaKey(item)}}
                     }
                 }
             }
@@ -222,7 +225,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
                 repo.saveSelection(newSelection)
                 selection=newSelection
                 folder=""
-                selected=null
+                selectedKey=null
                 status=""
                 progressDone=0
                 progressTotal=0
@@ -241,7 +244,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
             confirmButton={
                 TextButton(onClick={
                     deleteOfflineConfirm=false
-                    selected=null
+                    selectedKey=null
                     scope.launch{
                         val deleted=withContext(Dispatchers.IO){repo.clearOfflineData()}
                         reloadLocal()
@@ -253,7 +256,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
         )
     }
 
-    selected?.let{item->MediaDialog(item,repo){selected=null}}
+    selected?.let{item->MediaDialog(item,repo){selectedKey=null}}
 }
 
 @Composable
@@ -459,25 +462,54 @@ private fun MediaDialog(item:GalleryMedia,repo:GalleryRepository,onClose:()->Uni
 @Composable
 private fun OfflineVideoPlayer(file:File){
     var view by remember(file.absolutePath){mutableStateOf<VideoView?>(null)}
-    DisposableEffect(file.absolutePath){
-        onDispose{runCatching{view?.stopPlayback()}}
+    var resumePosition by rememberSaveable(file.absolutePath){mutableStateOf(0)}
+    var resumePlaying by rememberSaveable(file.absolutePath){mutableStateOf(true)}
+
+    LaunchedEffect(view,file.absolutePath){
+        while(true){
+            val current=view
+            if(current!=null&&runCatching{current.duration>0}.getOrDefault(false)){
+                resumePosition=runCatching{current.currentPosition}.getOrDefault(resumePosition)
+                resumePlaying=runCatching{current.isPlaying}.getOrDefault(resumePlaying)
+            }
+            delay(250)
+        }
     }
+
+    DisposableEffect(file.absolutePath){
+        onDispose{
+            view?.let{current->
+                runCatching{
+                    if(current.duration>0){
+                        resumePosition=current.currentPosition
+                        resumePlaying=current.isPlaying
+                    }
+                    current.stopPlayback()
+                }
+            }
+        }
+    }
+
     AndroidView(
         factory={ctx->
             VideoView(ctx).apply{
                 view=this
+                tag=file.absolutePath
                 val controller=MediaController(ctx)
                 controller.setAnchorView(this)
                 setMediaController(controller)
+                setOnPreparedListener{
+                    if(resumePosition>0)seekTo(resumePosition)
+                    if(resumePlaying)start()
+                }
                 setVideoPath(file.absolutePath)
-                setOnPreparedListener{start()}
             }
         },
         update={videoView->
+            view=videoView
             if(videoView.tag!=file.absolutePath){
                 videoView.tag=file.absolutePath
                 videoView.setVideoPath(file.absolutePath)
-                videoView.start()
             }
         },
         modifier=Modifier.fillMaxSize()
