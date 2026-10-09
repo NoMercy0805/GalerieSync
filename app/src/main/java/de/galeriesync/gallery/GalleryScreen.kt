@@ -126,6 +126,22 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
     }
 
     val contents=remember(media,folder){folderContents(media,folder)}
+    val folderPreviews=remember(media,folder,contents.first){
+        val result=mutableMapOf<String,MutableList<GalleryMedia>>()
+        val cleanCurrent=folder.trim('/')
+        val prefix=if(cleanCurrent.isBlank())"" else "$cleanCurrent/"
+        media.forEach{item->
+            val relative=item.relativePath().trim('/')
+            if(prefix.isNotEmpty()&&!relative.startsWith(prefix))return@forEach
+            val rest=if(prefix.isEmpty())relative else relative.removePrefix(prefix)
+            if('/' !in rest)return@forEach
+            val child=rest.substringBefore('/')
+            val childPath=if(cleanCurrent.isBlank())child else "$cleanCurrent/$child"
+            val previews=result.getOrPut(childPath){mutableListOf()}
+            if(previews.size<4&&repo.previewFile(item).exists())previews+=item
+        }
+        result.mapValues{it.value.toList()}
+    }
     val openCount=(progressTotal-progressDone).coerceAtLeast(0)
 
     BackHandler(enabled=folder.isNotBlank()){folder=folder.substringBeforeLast('/',"")}
@@ -195,15 +211,10 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
                     Box(Modifier.fillMaxSize().padding(24.dp),contentAlignment=Alignment.TopCenter){Text("In diesem Ordner wurden noch keine Bilder oder Videos gefunden.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
                 }else{
                     LazyVerticalGrid(columns=GridCells.Adaptive(110.dp),modifier=Modifier.fillMaxSize().padding(5.dp),horizontalArrangement=Arrangement.spacedBy(5.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
-                        items(contents.first,key={"folder:"+it.path}){f->
-                            val folderPrefix=f.path.trim('/')+"/"
-                            val previews=media.asSequence()
-                                .filter{m->m.relativePath().trim('/').startsWith(folderPrefix)&&repo.previewFile(m).exists()}
-                                .take(4)
-                                .toList()
-                            FolderTile(f,previews,repo){folder=f.path}
+                        items(contents.first,key={"folder:"+it.path},contentType={"folder"}){f->
+                            FolderTile(f,folderPreviews[f.path].orEmpty(),repo){folder=f.path}
                         }
-                        items(contents.second,key={it.sourceId+"|"+it.path}){item->MediaTile(item,repo){selectedKey=mediaKey(item)}}
+                        items(contents.second,key={it.sourceId+"|"+it.path},contentType={"media"}){item->MediaTile(item,repo){selectedKey=mediaKey(item)}}
                     }
                 }
             }
