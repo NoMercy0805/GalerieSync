@@ -1,0 +1,23 @@
+name: Apply settings overlay window
+on:
+  push:
+    branches: [ main ]
+    paths: [ '.github/workflows/apply-settings-overlay-window.yml' ]
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/apply_settings_overlay_window.py
+      - run: |
+          git config user.name ChatGPT
+          git config user.email chatgpt@users.noreply.github.com
+          git add app/src/main/java/de/galeriesync/MainActivity.kt
+          git diff --cached --check
+          git commit -m 'Show settings in Haushaltsbuch-style overlay window'
+          rm tools/apply_settings_overlay_window.py .github/workflows/apply-settings-overlay-window.yml
+          git add -A
+          git commit --amend --no-edit
+          git push
