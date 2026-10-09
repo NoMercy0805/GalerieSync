@@ -131,37 +131,22 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
     BackHandler(enabled=folder.isNotBlank()){folder=folder.substringBeforeLast('/',"")}
 
     Column(Modifier.fillMaxSize()){
-        Row(Modifier.fillMaxWidth().padding(horizontal=18.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically){
+        Row(Modifier.fillMaxWidth().padding(start=6.dp,end=18.dp,top=0.dp,bottom=2.dp),verticalAlignment=Alignment.CenterVertically){
+            if(selection!=null){
+                Box{
+                    IconButton(onClick={galleryMenuOpen=true},modifier=Modifier.size(40.dp)){Text("⋮",fontSize=25.sp,color=MaterialTheme.colorScheme.onSurface)}
+                    DropdownMenu(expanded=galleryMenuOpen,onDismissRequest={galleryMenuOpen=false}){
+                        DropdownMenuItem(text={Text(if(working)"Aktualisierung läuft" else "Aktualisieren")},onClick={galleryMenuOpen=false;startRefresh()},enabled=!working)
+                        DropdownMenuItem(text={Text("Ordner ändern")},onClick={galleryMenuOpen=false;pickerOpen=true},enabled=profiles.isNotEmpty())
+                        if(progressDone>0)DropdownMenuItem(text={Text("Offline-Daten löschen",color=MaterialTheme.colorScheme.error)},onClick={galleryMenuOpen=false;deleteOfflineConfirm=true},enabled=!working)
+                    }
+                }
+            }
             Column(Modifier.weight(1f)){
                 Text("Galerie",fontSize=25.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
                 Text("Verkleinerte Offline-Medien · ohne Speicherlimit",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
             }
-            if(selection==null){
-                TextButton(onClick={pickerOpen=true},enabled=profiles.isNotEmpty()){Text("Ordner wählen")}
-            }else{
-                Box{
-                    IconButton(onClick={galleryMenuOpen=true}){Text("⋮",fontSize=25.sp,color=MaterialTheme.colorScheme.onSurface)}
-                    DropdownMenu(expanded=galleryMenuOpen,onDismissRequest={galleryMenuOpen=false}){
-                        DropdownMenuItem(
-                            text={Text(if(working)"Aktualisierung läuft" else "Aktualisieren")},
-                            onClick={galleryMenuOpen=false;startRefresh()},
-                            enabled=!working
-                        )
-                        DropdownMenuItem(
-                            text={Text("Ordner ändern")},
-                            onClick={galleryMenuOpen=false;pickerOpen=true},
-                            enabled=profiles.isNotEmpty()
-                        )
-                        if(progressDone>0){
-                            DropdownMenuItem(
-                                text={Text("Offline-Daten löschen",color=MaterialTheme.colorScheme.error)},
-                                onClick={galleryMenuOpen=false;deleteOfflineConfirm=true},
-                                enabled=!working
-                            )
-                        }
-                    }
-                }
-            }
+            if(selection==null)TextButton(onClick={pickerOpen=true},enabled=profiles.isNotEmpty()){Text("Ordner wählen")}
         }
 
         if(working&&progressTotal==0)LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -210,7 +195,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
                     Box(Modifier.fillMaxSize().padding(24.dp),contentAlignment=Alignment.TopCenter){Text("In diesem Ordner wurden noch keine Bilder oder Videos gefunden.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
                 }else{
                     LazyVerticalGrid(columns=GridCells.Adaptive(110.dp),modifier=Modifier.fillMaxSize().padding(5.dp),horizontalArrangement=Arrangement.spacedBy(5.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
-                        items(contents.first,key={"folder:"+it.path}){f->FolderTile(f){folder=f.path}}
+                        items(contents.first,key={"folder:"+it.path}){f->FolderTile(f,media.firstOrNull{m->(m.path==f.path||m.path.startsWith(f.path+"/"))&&repo.previewFile(m).exists()},repo){folder=f.path}}
                         items(contents.second,key={it.sourceId+"|"+it.path}){item->MediaTile(item,repo){selectedKey=mediaKey(item)}}
                     }
                 }
@@ -345,13 +330,20 @@ private fun GalleryFolderPicker(profiles:List<NasSettings>,initialSelection:Gall
 }
 
 @Composable
-private fun FolderTile(folder:GalleryFolder,onClick:()->Unit){
+private fun FolderTile(folder:GalleryFolder,previewItem:GalleryMedia?,repo:GalleryRepository,onClick:()->Unit){
+    val preview=previewItem?.let{repo.previewFile(it)}
+    val hasPreview=preview?.exists()==true
     Card(Modifier.aspectRatio(1f).clickable{onClick()},shape=RoundedCornerShape(14.dp)){
-        Column(Modifier.fillMaxSize().padding(10.dp),verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally){
-            Text("📁",fontSize=34.sp)
-            Spacer(Modifier.height(5.dp))
-            Text(folder.name,fontSize=12.sp,fontWeight=FontWeight.SemiBold,maxLines=2,overflow=TextOverflow.Ellipsis)
-            Text("${folder.count}",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)){
+            if(hasPreview){
+                AsyncImage(model=preview,contentDescription=folder.name,modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha=0.30f)))
+            }
+            Column(Modifier.fillMaxSize().padding(10.dp),verticalArrangement=Arrangement.Bottom,horizontalAlignment=Alignment.Start){
+                if(!hasPreview)Text("📁",fontSize=30.sp)
+                Text(folder.name,fontSize=12.sp,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis,color=if(hasPreview)Color.White else MaterialTheme.colorScheme.onSurface)
+                Text("${folder.count}",fontSize=10.sp,color=if(hasPreview)Color.White.copy(alpha=0.82f) else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
