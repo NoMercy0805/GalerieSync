@@ -1,0 +1,24 @@
+name: Apply UI patch
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - ".github/patch_ui.py"
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply patch
+        run: python3 .github/patch_ui.py
+      - name: Commit changes
+        run: |
+          rm -f .github/patch_ui.py .github/workflows/apply-ui-patch.yml
+          git config user.name ChatGPT
+          git config user.email chatgpt@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m "Compact headers and add gallery folder previews"
+          git push
