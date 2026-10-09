@@ -1,0 +1,110 @@
+name: Apply Samsung-style album previews v2
+on:
+  push:
+    branches:
+      - main
+jobs:
+  apply:
+    if: contains(github.event.head_commit.message, 'Prepare Samsung-style album preview patch')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch UI only
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          g=Path('app/src/main/java/de/galeriesync/gallery/GalleryScreen.kt')
+          s=g.read_text()
+          old_call='''                        items(contents.first,key={"folder:"+it.path}){f->FolderTile(f,media.firstOrNull{m->(m.path==f.path||m.path.startsWith(f.path+"/"))&&repo.previewFile(m).exists()},repo){folder=f.path}}'''
+          new_call='''                        items(contents.first,key={"folder:"+it.path}){f->
+                            val folderPrefix=f.path.trim('/')+"/"
+                            val previews=media.asSequence()
+                                .filter{m->m.relativePath().trim('/').startsWith(folderPrefix)&&repo.previewFile(m).exists()}
+                                .take(4)
+                                .toList()
+                            FolderTile(f,previews,repo){folder=f.path}
+                        }'''
+          assert old_call in s, 'folder item call not found'
+          s=s.replace(old_call,new_call,1)
+
+          old_tile='''@Composable
+private fun FolderTile(folder:GalleryFolder,previewItem:GalleryMedia?,repo:GalleryRepository,onClick:()->Unit){
+    val preview=previewItem?.let{repo.previewFile(it)}
+    val hasPreview=preview?.exists()==true
+    Card(Modifier.aspectRatio(1f).clickable{onClick()},shape=RoundedCornerShape(14.dp)){
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)){
+            if(hasPreview){
+                AsyncImage(model=preview,contentDescription=folder.name,modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha=0.30f)))
+            }
+            Column(Modifier.fillMaxSize().padding(10.dp),verticalArrangement=Arrangement.Bottom,horizontalAlignment=Alignment.Start){
+                if(!hasPreview)Text("📁",fontSize=30.sp)
+                Text(folder.name,fontSize=12.sp,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis,color=if(hasPreview)Color.White else MaterialTheme.colorScheme.onSurface)
+                Text("${folder.count}",fontSize=10.sp,color=if(hasPreview)Color.White.copy(alpha=0.82f) else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+'''
+          new_tile='''@Composable
+private fun FolderTile(folder:GalleryFolder,previewItems:List<GalleryMedia>,repo:GalleryRepository,onClick:()->Unit){
+    val previewFiles=previewItems.map{repo.previewFile(it)}.filter{it.exists()}.take(4)
+    Card(
+        Modifier.aspectRatio(0.82f).clickable{onClick()},
+        shape=RoundedCornerShape(14.dp),
+        colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface),
+        elevation=CardDefaults.cardElevation(defaultElevation=0.dp)
+    ){
+        Column(Modifier.fillMaxSize()){
+            Box(Modifier.fillMaxWidth().weight(1f).background(MaterialTheme.colorScheme.surfaceVariant)){
+                when(previewFiles.size){
+                    0->Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){Text("📁",fontSize=34.sp)}
+                    1->AsyncImage(model=previewFiles[0],contentDescription=folder.name,modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+                    else->Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(2.dp)){
+                        Row(Modifier.weight(1f).fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(2.dp)){
+                            AsyncImage(model=previewFiles[0],contentDescription=null,modifier=Modifier.weight(1f).fillMaxHeight(),contentScale=ContentScale.Crop)
+                            AsyncImage(model=previewFiles.getOrElse(1){previewFiles[0]},contentDescription=null,modifier=Modifier.weight(1f).fillMaxHeight(),contentScale=ContentScale.Crop)
+                        }
+                        Row(Modifier.weight(1f).fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(2.dp)){
+                            AsyncImage(model=previewFiles.getOrElse(2){previewFiles[0]},contentDescription=null,modifier=Modifier.weight(1f).fillMaxHeight(),contentScale=ContentScale.Crop)
+                            AsyncImage(model=previewFiles.getOrElse(3){previewFiles.getOrElse(1){previewFiles[0]}},contentDescription=null,modifier=Modifier.weight(1f).fillMaxHeight(),contentScale=ContentScale.Crop)
+                        }
+                    }
+                }
+            }
+            Column(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=7.dp)){
+                Text(folder.name,fontSize=12.sp,fontWeight=FontWeight.Bold,maxLines=1,overflow=TextOverflow.Ellipsis,color=MaterialTheme.colorScheme.onSurface)
+                Text("${folder.count}",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+'''
+          assert old_tile in s, 'FolderTile block not found'
+          s=s.replace(old_tile,new_tile,1)
+          s=s.replace('Row(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically){','Row(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=0.dp),verticalAlignment=Alignment.CenterVertically){',1)
+          g.write_text(s)
+
+          m=Path('app/src/main/java/de/galeriesync/MainActivity.kt')
+          t=m.read_text()
+          old='Box(Modifier.padding(pad).fillMaxSize()){when(tab){'
+          new='Box(Modifier.padding(bottom=pad.calculateBottomPadding()).fillMaxSize()){when(tab){'
+          assert old in t, 'Scaffold content padding block not found'
+          t=t.replace(old,new,1)
+          m.write_text(t)
+          PY
+      - name: Commit and trigger build
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name ChatGPT
+          git config user.email chatgpt@users.noreply.github.com
+          rm -f .github/workflows/apply-samsung-albums-v2.yml
+          printf 'GalerieSync 0.4.9: compact top and Samsung-style album previews\n' > .github/build-trigger
+          git add -A
+          git commit -m 'Compact screens and add Samsung-style album previews'
+          git push
