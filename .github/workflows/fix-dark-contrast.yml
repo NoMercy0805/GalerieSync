@@ -1,0 +1,72 @@
+name: Fix dark mode contrast
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - ".github/workflows/fix-dark-contrast.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply dark-mode-only contrast fix
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/de/galeriesync/MainActivity.kt')
+          s = p.read_text()
+          old = '''private val Scheme=darkColorScheme(
+           primary=Color(0xFF5B9CFF),onPrimary=Color.White,
+           primaryContainer=Color(0xFF1B2A44),onPrimaryContainer=Color(0xFF8FB4E8),
+           secondary=Color(0xFF2ED991),onSecondary=Color(0xFF0F1013),
+           background=Color(0xFF484F5A),surface=Color(0xFF1E1F24),surfaceVariant=Color(0xFF24252B),
+           onBackground=Color(0xFFF2F2F4),onSurface=Color(0xFFF2F2F4),onSurfaceVariant=Color(0xFFA9ABB2),
+           outline=Color(0xFF45464E),error=Color(0xFFFF5B42)
+          )'''
+          new = '''private val Scheme=darkColorScheme(
+           primary=Color(0xFF6AA6FF),onPrimary=Color(0xFF071426),
+           primaryContainer=Color(0xFF24446F),onPrimaryContainer=Color(0xFFD8E7FF),
+           secondary=Color(0xFF43E0A0),onSecondary=Color(0xFF071B13),
+           background=Color(0xFF0F1013),surface=Color(0xFF1E1F24),surfaceVariant=Color(0xFF2C2E35),
+           onBackground=Color(0xFFF5F5F7),onSurface=Color(0xFFF5F5F7),onSurfaceVariant=Color(0xFFC4C6CD),
+           outline=Color(0xFF666973),error=Color(0xFFFF6B55)
+          )'''
+          if old not in s:
+              raise SystemExit('Expected dark scheme not found; refusing to modify anything.')
+          s = s.replace(old, new, 1)
+          s = s.replace(
+              'window.statusBarColor=if(dark)android.graphics.Color.rgb(15,16,19) else android.graphics.Color.rgb(242,242,245)',
+              'window.statusBarColor=if(dark)android.graphics.Color.rgb(15,16,19) else android.graphics.Color.rgb(242,242,245)',
+              1
+          )
+          s = s.replace(
+              'window.navigationBarColor=if(dark)android.graphics.Color.rgb(30,31,36) else android.graphics.Color.WHITE',
+              'window.navigationBarColor=if(dark)android.graphics.Color.rgb(30,31,36) else android.graphics.Color.WHITE',
+              1
+          )
+          p.write_text(s)
+          PY
+
+      - name: Verify scope
+        run: |
+          changed="$(git diff --name-only)"
+          printf '%s\n' "$changed"
+          test "$changed" = "app/src/main/java/de/galeriesync/MainActivity.kt"
+
+      - name: Commit fix and remove helper workflow
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@users.noreply.github.com"
+          git add app/src/main/java/de/galeriesync/MainActivity.kt
+          git rm .github/workflows/fix-dark-contrast.yml
+          git commit -m "Improve dark mode contrast"
+          git push
