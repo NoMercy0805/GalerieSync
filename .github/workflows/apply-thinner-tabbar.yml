@@ -1,0 +1,22 @@
+name: Apply thinner tab bar
+on:
+  push:
+    branches: [ main ]
+    paths: [ '.github/workflows/apply-thinner-tabbar.yml' ]
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/apply_thinner_tabbar.py
+      - run: |
+          git config user.name ChatGPT
+          git config user.email chatgpt@users.noreply.github.com
+          git add app/src/main/java/de/galeriesync/MainActivity.kt
+          git commit -m 'Make bottom tab bar thinner'
+          rm tools/apply_thinner_tabbar.py .github/workflows/apply-thinner-tabbar.yml
+          git add -A
+          git commit --amend --no-edit
+          git push
