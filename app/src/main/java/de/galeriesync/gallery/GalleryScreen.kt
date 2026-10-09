@@ -130,7 +130,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
 
     BackHandler(enabled=folder.isNotBlank()){folder=folder.substringBeforeLast('/',"")}
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)){
+    Column(Modifier.fillMaxSize()){
         Row(Modifier.fillMaxWidth().padding(horizontal=18.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically){
             Column(Modifier.weight(1f)){
                 Text("Galerie",fontSize=25.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
@@ -284,7 +284,7 @@ private fun GalleryFolderPicker(profiles:List<NasSettings>,initialSelection:Gall
     }
 
     Dialog(onDismissRequest=onClose){
-        Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
+        Surface(shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=14.dp){
             Column(Modifier.fillMaxWidth().padding(16.dp)){
                 Text("Galerie-Ordner auswählen",fontSize=20.sp,fontWeight=FontWeight.Bold)
                 Text("Nur dieser Ordner und seine Unterordner werden in die Galerie aufgenommen.",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -346,7 +346,7 @@ private fun GalleryFolderPicker(profiles:List<NasSettings>,initialSelection:Gall
 
 @Composable
 private fun FolderTile(folder:GalleryFolder,onClick:()->Unit){
-    Card(Modifier.aspectRatio(1f).clickable{onClick()},shape=RoundedCornerShape(12.dp)){
+    Card(Modifier.aspectRatio(1f).clickable{onClick()},shape=RoundedCornerShape(14.dp)){
         Column(Modifier.fillMaxSize().padding(10.dp),verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally){
             Text("📁",fontSize=34.sp)
             Spacer(Modifier.height(5.dp))
@@ -360,7 +360,7 @@ private fun FolderTile(folder:GalleryFolder,onClick:()->Unit){
 private fun MediaTile(item:GalleryMedia,repo:GalleryRepository,onClick:()->Unit){
     val preview=repo.previewFile(item)
     val videoReady=!item.video||repo.offlineVideoFile(item).exists()
-    Card(Modifier.aspectRatio(1f).clickable{onClick()},shape=RoundedCornerShape(10.dp)){
+    Card(Modifier.aspectRatio(1f).clickable{onClick()},shape=RoundedCornerShape(14.dp)){
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){
             when{
                 preview.exists()->AsyncImage(model=preview,contentDescription=item.name,modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
