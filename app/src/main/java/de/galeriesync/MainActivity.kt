@@ -55,12 +55,12 @@ import java.util.concurrent.TimeUnit
 private fun currentWifiName(context:android.content.Context):String?{val cm=context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager;val network=cm?.activeNetwork;val caps=network?.let{cm.getNetworkCapabilities(it)};if(caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)!=true)return null;val wm=context.applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as? WifiManager?:return null;return runCatching{wm.connectionInfo?.ssid?.trim('"')}.getOrNull()?.takeIf{it.isNotBlank()&&it!="<unknown ssid>"}}
 
 private val Scheme=darkColorScheme(
- primary=Color(0xFF5B9CFF),onPrimary=Color.White,
- primaryContainer=Color(0xFF1B2A44),onPrimaryContainer=Color(0xFF8FB4E8),
- secondary=Color(0xFF2ED991),onSecondary=Color(0xFF0F1013),
- background=Color(0xFF484F5A),surface=Color(0xFF1E1F24),surfaceVariant=Color(0xFF24252B),
- onBackground=Color(0xFFF2F2F4),onSurface=Color(0xFFF2F2F4),onSurfaceVariant=Color(0xFFA9ABB2),
- outline=Color(0xFF45464E),error=Color(0xFFFF5B42)
+ primary=Color(0xFF6AA6FF),onPrimary=Color(0xFF071426),
+ primaryContainer=Color(0xFF24446F),onPrimaryContainer=Color(0xFFD8E7FF),
+ secondary=Color(0xFF43E0A0),onSecondary=Color(0xFF071B13),
+ background=Color(0xFF0F1013),surface=Color(0xFF1E1F24),surfaceVariant=Color(0xFF2C2E35),
+ onBackground=Color(0xFFF5F5F7),onSurface=Color(0xFFF5F5F7),onSurfaceVariant=Color(0xFFC4C6CD),
+ outline=Color(0xFF666973),error=Color(0xFFFF6B55)
 )
 private val LightScheme=lightColorScheme(
  primary=Color(0xFF1268FF),onPrimary=Color.White,
