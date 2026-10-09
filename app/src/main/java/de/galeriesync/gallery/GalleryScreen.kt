@@ -183,7 +183,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
             }
             else->{
                 if(folder.isNotBlank()){
-                    Row(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically){
+                    Row(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=0.dp),verticalAlignment=Alignment.CenterVertically){
                         TextButton(onClick={folder=folder.substringBeforeLast('/',"")}){Text("‹",fontSize=28.sp)}
                         Column(Modifier.weight(1f)){
                             Text(folder.substringAfterLast('/'),fontWeight=FontWeight.Bold,maxLines=1,overflow=TextOverflow.Ellipsis)
@@ -195,7 +195,14 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
                     Box(Modifier.fillMaxSize().padding(24.dp),contentAlignment=Alignment.TopCenter){Text("In diesem Ordner wurden noch keine Bilder oder Videos gefunden.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
                 }else{
                     LazyVerticalGrid(columns=GridCells.Adaptive(110.dp),modifier=Modifier.fillMaxSize().padding(5.dp),horizontalArrangement=Arrangement.spacedBy(5.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
-                        items(contents.first,key={"folder:"+it.path}){f->FolderTile(f,media.firstOrNull{m->(m.path==f.path||m.path.startsWith(f.path+"/"))&&repo.previewFile(m).exists()},repo){folder=f.path}}
+                        items(contents.first,key={"folder:"+it.path}){f->
+                            val folderPrefix=f.path.trim('/')+"/"
+                            val previews=media.asSequence()
+                                .filter{m->m.relativePath().trim('/').startsWith(folderPrefix)&&repo.previewFile(m).exists()}
+                                .take(4)
+                                .toList()
+                            FolderTile(f,previews,repo){folder=f.path}
+                        }
                         items(contents.second,key={it.sourceId+"|"+it.path}){item->MediaTile(item,repo){selectedKey=mediaKey(item)}}
                     }
                 }
@@ -330,19 +337,34 @@ private fun GalleryFolderPicker(profiles:List<NasSettings>,initialSelection:Gall
 }
 
 @Composable
-private fun FolderTile(folder:GalleryFolder,previewItem:GalleryMedia?,repo:GalleryRepository,onClick:()->Unit){
-    val preview=previewItem?.let{repo.previewFile(it)}
-    val hasPreview=preview?.exists()==true
-    Card(Modifier.aspectRatio(1f).clickable{onClick()},shape=RoundedCornerShape(14.dp)){
-        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)){
-            if(hasPreview){
-                AsyncImage(model=preview,contentDescription=folder.name,modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
-                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha=0.30f)))
+private fun FolderTile(folder:GalleryFolder,previewItems:List<GalleryMedia>,repo:GalleryRepository,onClick:()->Unit){
+    val previewFiles=previewItems.map{repo.previewFile(it)}.filter{it.exists()}.take(4)
+    Card(
+        Modifier.aspectRatio(0.82f).clickable{onClick()},
+        shape=RoundedCornerShape(14.dp),
+        colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface),
+        elevation=CardDefaults.cardElevation(defaultElevation=0.dp)
+    ){
+        Column(Modifier.fillMaxSize()){
+            Box(Modifier.fillMaxWidth().weight(1f).background(MaterialTheme.colorScheme.surfaceVariant)){
+                when(previewFiles.size){
+                    0->Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){Text("📁",fontSize=34.sp)}
+                    1->AsyncImage(model=previewFiles[0],contentDescription=folder.name,modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+                    else->Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(2.dp)){
+                        Row(Modifier.weight(1f).fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(2.dp)){
+                            AsyncImage(model=previewFiles[0],contentDescription=null,modifier=Modifier.weight(1f).fillMaxHeight(),contentScale=ContentScale.Crop)
+                            AsyncImage(model=previewFiles.getOrElse(1){previewFiles[0]},contentDescription=null,modifier=Modifier.weight(1f).fillMaxHeight(),contentScale=ContentScale.Crop)
+                        }
+                        Row(Modifier.weight(1f).fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(2.dp)){
+                            AsyncImage(model=previewFiles.getOrElse(2){previewFiles[0]},contentDescription=null,modifier=Modifier.weight(1f).fillMaxHeight(),contentScale=ContentScale.Crop)
+                            AsyncImage(model=previewFiles.getOrElse(3){previewFiles.getOrElse(1){previewFiles[0]}},contentDescription=null,modifier=Modifier.weight(1f).fillMaxHeight(),contentScale=ContentScale.Crop)
+                        }
+                    }
+                }
             }
-            Column(Modifier.fillMaxSize().padding(10.dp),verticalArrangement=Arrangement.Bottom,horizontalAlignment=Alignment.Start){
-                if(!hasPreview)Text("📁",fontSize=30.sp)
-                Text(folder.name,fontSize=12.sp,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis,color=if(hasPreview)Color.White else MaterialTheme.colorScheme.onSurface)
-                Text("${folder.count}",fontSize=10.sp,color=if(hasPreview)Color.White.copy(alpha=0.82f) else MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=7.dp)){
+                Text(folder.name,fontSize=12.sp,fontWeight=FontWeight.Bold,maxLines=1,overflow=TextOverflow.Ellipsis,color=MaterialTheme.colorScheme.onSurface)
+                Text("${folder.count}",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
