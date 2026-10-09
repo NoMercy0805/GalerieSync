@@ -1,0 +1,24 @@
+name: Apply gallery scroll cache simple
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/apply-gallery-scroll-cache-simple.yml'
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/apply_gallery_scroll_cache.py
+      - run: |
+          git config user.name ChatGPT
+          git config user.email chatgpt@users.noreply.github.com
+          git add app/src/main/java/de/galeriesync/gallery/GalleryScreen.kt
+          git diff --cached --check
+          git commit -m "Cache gallery folder previews for smooth scrolling"
+          rm tools/apply_gallery_scroll_cache.py .github/workflows/apply-gallery-scroll-cache-simple.yml
+          git add -A
+          git commit --amend --no-edit
+          git push
