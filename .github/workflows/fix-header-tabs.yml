@@ -1,0 +1,41 @@
+name: Fix header and tabs
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply design-only fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/de/galeriesync/MainActivity.kt')
+          s=p.read_text()
+          old='@Composable private fun Header(t:String,s:String?=null){Column(Modifier.fillMaxWidth().padding(20.dp,18.dp,20.dp,10.dp)){Text(t,fontSize=25.sp,fontWeight=FontWeight.Bold);s?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=13.sp)}}}'
+          new='@Composable private fun Header(t:String,s:String?=null){Column(Modifier.fillMaxWidth().padding(20.dp,18.dp,20.dp,10.dp)){Text(t,fontSize=25.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground);s?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=13.sp)}}}'
+          assert old in s
+          s=s.replace(old,new,1)
+          old2='bottomBar={NavigationBar(containerColor=MaterialTheme.colorScheme.surface,tonalElevation=0.dp){Tab.entries.forEach{t->NavigationBarItem(selected=tab==t,onClick={tab=t},icon={Text(t.icon,fontSize=20.sp)},label={Text(t.label,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedIconColor=MaterialTheme.colorScheme.onPrimaryContainer,selectedTextColor=MaterialTheme.colorScheme.onPrimaryContainer,indicatorColor=MaterialTheme.colorScheme.primaryContainer,unselectedIconColor=MaterialTheme.colorScheme.onSurfaceVariant,unselectedTextColor=MaterialTheme.colorScheme.onSurfaceVariant))}}}'
+          new2='bottomBar={Surface(modifier=Modifier.fillMaxWidth().padding(horizontal=6.dp,vertical=6.dp),shape=RoundedCornerShape(26.dp),color=MaterialTheme.colorScheme.surface,tonalElevation=0.dp,shadowElevation=8.dp,border=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=0.45f))){Row(Modifier.fillMaxWidth().padding(6.dp),horizontalArrangement=Arrangement.SpaceEvenly){Tab.entries.forEach{t->val selected=tab==t;Column(Modifier.weight(1f).clickable{tab=t}.padding(vertical=12.dp,horizontal=4.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)){Text(t.icon,fontSize=20.sp,color=if(selected)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant);Text(t.label,fontSize=10.sp,fontWeight=FontWeight.Bold,color=if(selected)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)}}}}}'
+          assert old2 in s
+          s=s.replace(old2,new2,1)
+          p.write_text(s)
+          PY
+      - name: Verify scope
+        run: |
+          test "$(git diff --name-only)" = "app/src/main/java/de/galeriesync/MainActivity.kt"
+      - name: Commit fix and remove helper workflow
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@users.noreply.github.com"
+          git rm .github/workflows/fix-header-tabs.yml
+          git add app/src/main/java/de/galeriesync/MainActivity.kt
+          git commit -m "Fix dark headers and match Haushaltsbuch tabs"
+          git push
