@@ -10,6 +10,7 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import de.galeriesync.data.SettingsStore
+import de.galeriesync.vpn.VpnManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -78,12 +79,24 @@ class GalleryCacheWorker(context:Context,params:WorkerParameters):CoroutineWorke
             ?:return@withContext Result.success(workDataOf(KEY_MESSAGE to "Bitte zuerst einen Galerie-Ordner auswählen"))
         if(profiles.none{it.id==selection.sourceId})
             return@withContext Result.success(workDataOf(KEY_MESSAGE to "Die ausgewählte NAS-Quelle ist nicht mehr vorhanden"))
+        val activeProfile=profiles.first{it.id==selection.sourceId}
 
         setForeground(foreground("Galerie wird vorbereitet …"))
         var lastNotificationAt=0L
+        var startedVpn=false
 
         try{
             val result=runCatching{
+                startedVpn=VpnManager.connectIfNeeded(applicationContext){message->
+                    setProgressAsync(workDataOf(KEY_MESSAGE to message))
+                    updateForegroundNotification(message)
+                }
+                if(startedVpn){
+                    VpnManager.waitForSmb(activeProfile.host){message->
+                        setProgressAsync(workDataOf(KEY_MESSAGE to message))
+                        updateForegroundNotification(message)
+                    }
+                }
                 val scanMessage="NAS-Ordner wird im Hintergrund eingelesen …"
                 setProgress(workDataOf(KEY_MESSAGE to scanMessage))
                 updateForegroundNotification(scanMessage)
@@ -140,6 +153,7 @@ class GalleryCacheWorker(context:Context,params:WorkerParameters):CoroutineWorke
             }
             result
         }finally{
+            if(startedVpn)runCatching{VpnManager.disconnect()}
             nm.cancel(NOTIFICATION_RUNNING)
         }
     }
