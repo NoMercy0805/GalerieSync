@@ -74,6 +74,7 @@ class GalleryRepository(private val context:Context){
     private val videoRoot=File(cacheRoot,"videos").apply{mkdirs()}
     private val tempRoot=File(context.cacheDir,"galeriesync_gallery").apply{mkdirs()}
     private val indexFile=File(cacheRoot,"index.json")
+    private val folderIndexFile=File(cacheRoot,"folder_index.json")
     private val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
 
     fun loadSelection():GallerySelection?{
@@ -128,6 +129,74 @@ class GalleryRepository(private val context:Context){
         if(!tmp.renameTo(indexFile)){tmp.copyTo(indexFile,true);tmp.delete()}
     }
 
+    private fun saveFolderPreviewIndex(items:List<GalleryMedia>)=synchronized(lock){
+        val folders=linkedMapOf<String,MutableList<GalleryMedia>>()
+        items.asSequence()
+            .sortedWith(compareBy<GalleryMedia>({it.video},{it.path.lowercase()}))
+            .forEach{item->
+                val relative=item.relativePath().trim('/')
+                val directory=relative.substringBeforeLast('/',"")
+                if(directory.isBlank())return@forEach
+                var current=""
+                directory.split('/').filter{it.isNotBlank()}.forEach{part->
+                    current=if(current.isBlank())part else "$current/$part"
+                    val previews=folders.getOrPut(current){mutableListOf()}
+                    if(previews.size<4)previews+=item
+                }
+            }
+        val root=JSONObject()
+        folders.forEach{(path,previews)->
+            root.put(path,JSONArray().apply{
+                previews.forEach{m->put(JSONObject().apply{
+                    put("sourceId",m.sourceId)
+                    put("sourceTitle",m.sourceTitle)
+                    put("remoteRoot",m.remoteRoot)
+                    put("path",m.path)
+                    put("size",m.size)
+                    put("video",m.video)
+                })}
+            })
+        }
+        val tmp=File(cacheRoot,"folder_index.json.tmp")
+        tmp.writeText(root.toString())
+        if(folderIndexFile.exists())folderIndexFile.delete()
+        if(!tmp.renameTo(folderIndexFile)){tmp.copyTo(folderIndexFile,true);tmp.delete()}
+    }
+
+    private fun loadFolderPreviewIndex():Map<String,List<GalleryMedia>> = synchronized(lock){
+        if(!folderIndexFile.exists())return@synchronized emptyMap()
+        runCatching{
+            val root=JSONObject(folderIndexFile.readText())
+            buildMap{
+                val keys=root.keys()
+                while(keys.hasNext()){
+                    val folder=keys.next()
+                    val array=root.optJSONArray(folder)?:continue
+                    val previews=(0 until array.length()).mapNotNull{i->
+                        val o=array.optJSONObject(i)?:return@mapNotNull null
+                        GalleryMedia(
+                            sourceId=o.optString("sourceId"),
+                            sourceTitle=o.optString("sourceTitle"),
+                            remoteRoot=o.optString("remoteRoot"),
+                            path=o.optString("path"),
+                            size=o.optLong("size",0L),
+                            video=o.optBoolean("video",false)
+                        ).takeIf{it.sourceId.isNotBlank()&&it.path.isNotBlank()}
+                    }
+                    if(previews.isNotEmpty())put(folder,previews)
+                }
+            }
+        }.getOrDefault(emptyMap())
+    }
+
+    fun loadFolderPreviews(currentFolder:String):Map<String,List<GalleryMedia>>{
+        val clean=currentFolder.trim('/')
+        return loadFolderPreviewIndex().filterKeys{path->path.substringBeforeLast('/',"")==clean}
+    }
+
+    private fun folderPreviewKeys():Set<String> = loadFolderPreviewIndex().values
+        .asSequence().flatten().map{it.sourceId+"|"+it.path}.toSet()
+
     fun refreshIndex(profiles:List<NasSettings>):GalleryIndexResult{
         val selection=loadSelection()
             ?:return GalleryIndexResult(emptyList(),emptySet(),listOf("Kein Galerie-Ordner ausgewählt"))
@@ -146,6 +215,7 @@ class GalleryRepository(private val context:Context){
                 }
             }.distinctBy{it.sourceId+"|"+it.path}.sortedBy{it.path.lowercase()}
             saveIndex(found)
+            saveFolderPreviewIndex(found)
             pruneObsoleteOfflineData(found)
             GalleryIndexResult(found,setOf(profile.id),emptyList())
         }.getOrElse{e->
@@ -176,7 +246,10 @@ class GalleryRepository(private val context:Context){
     ):GalleryCacheResult=coroutineScope{
         val providers=profiles.filter{it.id in allowedSources}.associate{it.id to SmbProvider(it)}
         val eligible=items.filter{it.sourceId in allowedSources}
-        val missingImages=eligible.filter{!it.video&&!previewFile(it).exists()}
+        val coverKeys=folderPreviewKeys()
+        val missingImages=eligible
+            .filter{!it.video&&!previewFile(it).exists()}
+            .sortedByDescending{(it.sourceId+"|"+it.path) in coverKeys}
         val missingVideos=eligible.filter{it.video&&!offlineVideoFile(it).exists()}
         val total=eligible.size
         val done=AtomicInteger(total-missingImages.size-missingVideos.size)

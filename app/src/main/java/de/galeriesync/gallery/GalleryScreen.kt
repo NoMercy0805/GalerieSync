@@ -59,6 +59,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
     var media by remember{mutableStateOf(initialMedia)}
     var folder by rememberSaveable{mutableStateOf("")}
     var selectedKey by rememberSaveable{mutableStateOf<String?>(null)}
+    var previewGeneration by remember{mutableIntStateOf(0)}
     var status by remember{mutableStateOf("")}
     var working by remember{mutableStateOf(false)}
     var progressDone by remember{mutableIntStateOf(initialProgress.first)}
@@ -73,6 +74,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
         val progress=repo.previewProgress(media)
         progressDone=progress.first
         progressTotal=progress.second
+        previewGeneration++
     }
 
     fun applyWorkerProgress(info:WorkInfo){
@@ -126,22 +128,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
     }
 
     val contents=remember(media,folder){folderContents(media,folder)}
-    val folderPreviews=remember(media,folder,contents.first){
-        val result=mutableMapOf<String,MutableList<GalleryMedia>>()
-        val cleanCurrent=folder.trim('/')
-        val prefix=if(cleanCurrent.isBlank())"" else "$cleanCurrent/"
-        media.forEach{item->
-            val relative=item.relativePath().trim('/')
-            if(prefix.isNotEmpty()&&!relative.startsWith(prefix))return@forEach
-            val rest=if(prefix.isEmpty())relative else relative.removePrefix(prefix)
-            if('/' !in rest)return@forEach
-            val child=rest.substringBefore('/')
-            val childPath=if(cleanCurrent.isBlank())child else "$cleanCurrent/$child"
-            val previews=result.getOrPut(childPath){mutableListOf()}
-            if(previews.size<4&&repo.previewFile(item).exists())previews+=item
-        }
-        result.mapValues{it.value.toList()}
-    }
+    val folderPreviews=remember(folder,previewGeneration){repo.loadFolderPreviews(folder)}
     val openCount=(progressTotal-progressDone).coerceAtLeast(0)
 
     BackHandler(enabled=folder.isNotBlank()){folder=folder.substringBeforeLast('/',"")}
