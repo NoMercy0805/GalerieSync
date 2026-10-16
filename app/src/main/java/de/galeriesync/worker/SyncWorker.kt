@@ -40,7 +40,7 @@ class SyncWorker(appContext:Context,params:WorkerParameters):CoroutineWorker(app
      store.saveProfileLastSync(p.id,"$time · $summary")
     }
    }finally{if(startedVpn)VpnManager.disconnect()}
-   nm.cancel(4101);notifyDone("Sync erfolgreich","GalerieSync wurde erfolgreich synchronisiert");Result.success()
+   nm.cancel(4101);notifyDone("Sync erfolgreich","GalerieSync wurde erfolgreich synchronisiert");if(inputData.getBoolean("auto_sync",false))AutoSyncScheduler.scheduleNext(applicationContext,true);Result.success()
   }.getOrElse{error->
    val time=java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
    activeProfile?.let{p->store.addSyncHistory("$time · [${p.id}] ${p.profileName} · Fehlgeschlagen: "+(error.message?:"Unbekannter Fehler"))}
