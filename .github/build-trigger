@@ -1,1 +1,1 @@
-GalerieSync 0.4.16: fix auto-sync time anchor and show next planned start
+GalerieSync 0.4.17: DST-safe local-time auto-sync scheduler
