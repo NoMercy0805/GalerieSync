@@ -41,6 +41,9 @@ jobs:
           fi
           echo "Signing key verified against expected fingerprint."
 
+      - name: Apply auto-sync scheduling fix
+        run: python3 .github/patch-autosync.py
+
       - name: Build debug APK
         id: build
         shell: bash
