@@ -1,1 +1,1 @@
-GalerieSync 0.4.17: DST-safe local-time auto-sync scheduler
+GalerieSync 0.4.18: Fix crash when enabling sync notifications on Android 13+
