@@ -84,8 +84,15 @@ jobs:
           fi
           echo "APK signature verified against expected fingerprint."
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: GalerieSync-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+      - name: Publish verified APK as GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          TAG="galeriesync-notification-fix-218"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "GalerieSync – Benachrichtigungs-Fix (Build 218)" --notes "Android 13+: Sichere Abfrage der Benachrichtigungsberechtigung. APK mit stabilem GalerieSync-Signaturschlüssel signiert."
+          fi
+          gh release upload "$TAG" "$APK#GalerieSync-Build-218.apk" --clobber
