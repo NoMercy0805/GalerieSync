@@ -213,7 +213,79 @@ enum class Editor{NONE,NAS,SYNC}
  }}
 }
 
-@Composable private fun NasList(items:List<NasSettings>,testStates:Map<String,Boolean>,storage:Map<String,SmbStorageInfo>,updated:Map<String,Long>,onAdd:()->Unit,onEdit:(NasSettings)->Unit,onDelete:(NasSettings)->Unit,onTest:(NasSettings)->Unit){Column(Modifier.fillMaxSize()){Header("NAS","Verbindungen verwalten");Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){if(items.isEmpty())CardBox{Text("Noch keine NAS-Verbindung",fontWeight=FontWeight.Bold);Text("Lege eine SMB-Verbindung zu deiner NAS an.",color=MaterialTheme.colorScheme.onSurfaceVariant)};items.forEach{n->CardBox{Row(verticalAlignment=Alignment.CenterVertically){val testState=testStates[n.id];Text("▣",fontSize=30.sp,color=when(testState){true->MaterialTheme.colorScheme.secondary;false->MaterialTheme.colorScheme.error;null->MaterialTheme.colorScheme.onSurface});Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(n.name.ifBlank{n.host},fontWeight=FontWeight.Bold);Text(n.host+" · "+n.share,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp);storage[n.id]?.let{s->Spacer(Modifier.height(8.dp));if(s.total>0){val used=s.used.toFloat()/s.total;LinearProgressIndicator(progress={used},modifier=Modifier.fillMaxWidth());Text("${formatBytes(s.used)} belegt · ${formatBytes(s.free)} frei · ${formatBytes(s.total)} gesamt",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)}else{Text("${formatBytes(s.free)} frei",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)};updated[n.id]?.let{t->Text("Zuletzt aktualisiert: "+java.text.SimpleDateFormat("dd.MM.yyyy HH:mm",java.util.Locale.GERMANY).format(java.util.Date(t)),color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=10.sp)}}}};Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){TextButton(onClick={onTest(n)}){Text(if(storage[n.id]!=null)"Aktualisieren" else "Speicher aktualisieren")};TextButton(onClick={onEdit(n)}){Text("Bearbeiten")};TextButton(onClick={onDelete(n)}){Text("Löschen",color=MaterialTheme.colorScheme.error)}}}};Button(onClick=onAdd,modifier=Modifier.fillMaxWidth()){Text("+  Neue NAS-Verbindung")}}}}
+@Composable private fun NasList(items:List<NasSettings>,testStates:Map<String,Boolean>,storage:Map<String,SmbStorageInfo>,updated:Map<String,Long>,onAdd:()->Unit,onEdit:(NasSettings)->Unit,onDelete:(NasSettings)->Unit,onTest:(NasSettings)->Unit){
+ Column(Modifier.fillMaxSize()){
+  Row(Modifier.fillMaxWidth().padding(start=24.dp,end=24.dp,top=14.dp,bottom=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){
+   Text("NAS",fontSize=30.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
+   IconButton(onClick=onAdd,modifier=Modifier.size(48.dp)){Text("+",fontSize=36.sp,color=MaterialTheme.colorScheme.onBackground)}
+  }
+  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+   if(items.isEmpty()){
+    CardBox{Text("Noch keine NAS-Verbindung",fontWeight=FontWeight.Bold);Text("Mit + oben rechts eine NAS-Verbindung hinzufügen.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
+   }
+   items.forEach{n->
+    val testState=testStates[n.id]
+    val info=storage[n.id]
+    val connected=testState==true
+    Card(modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(20.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)){
+     Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+      Row(verticalAlignment=Alignment.CenterVertically){
+       Surface(shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.primary.copy(alpha=.12f)){
+        Box(Modifier.size(58.dp),contentAlignment=Alignment.Center){Icon(Icons.Rounded.Storage,contentDescription=null,modifier=Modifier.size(32.dp),tint=MaterialTheme.colorScheme.primary)}
+       }
+       Spacer(Modifier.width(14.dp))
+       Column(Modifier.weight(1f)){
+        Text(n.name.ifBlank{n.host},fontSize=19.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurface)
+        Text(n.host+" · SMB",fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(5.dp))
+        Text(when(testState){true->"● Verbunden";false->"● Verbindung fehlgeschlagen";null->"● Nicht geprüft"},
+         fontSize=13.sp,fontWeight=FontWeight.SemiBold,color=when(testState){true->MaterialTheme.colorScheme.secondary;false->MaterialTheme.colorScheme.error;null->MaterialTheme.colorScheme.onSurfaceVariant})
+       }
+      }
+      if(info!=null){
+       HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.25f))
+       Text("Speicherplatz",fontSize=16.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurface)
+       if(info.total>0){
+        val usedFraction=(info.used.toDouble()/info.total.toDouble()).toFloat().coerceIn(0f,1f)
+        Row(verticalAlignment=Alignment.CenterVertically){
+         LinearProgressIndicator(progress={usedFraction},modifier=Modifier.weight(1f).height(9.dp),color=MaterialTheme.colorScheme.primary,trackColor=MaterialTheme.colorScheme.primary.copy(alpha=.16f))
+         Spacer(Modifier.width(12.dp))
+         Text("${(usedFraction*100).toInt()} %",fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurface)
+        }
+        Text("${formatBytes(info.free)} von ${formatBytes(info.total)} frei",fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+       }else Text("${formatBytes(info.free)} frei",fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+       updated[n.id]?.let{t->Text("Stand: "+java.text.SimpleDateFormat("dd.MM.yyyy HH:mm",java.util.Locale.GERMANY).format(java.util.Date(t)),fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+      }
+     }
+    }
+    Card(modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)){
+     Column{
+      Row(Modifier.fillMaxWidth().clickable{onTest(n)}.padding(18.dp),verticalAlignment=Alignment.CenterVertically){
+       Text("↻",fontSize=23.sp,color=MaterialTheme.colorScheme.primary)
+       Spacer(Modifier.width(15.dp))
+       Text(if(info!=null)"Speicher aktualisieren" else "Speicher aktualisieren",modifier=Modifier.weight(1f),fontWeight=FontWeight.SemiBold)
+       Text("›",fontSize=24.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      }
+      HorizontalDivider(Modifier.padding(horizontal=18.dp),color=MaterialTheme.colorScheme.outline.copy(alpha=.2f))
+      Row(Modifier.fillMaxWidth().clickable{onEdit(n)}.padding(18.dp),verticalAlignment=Alignment.CenterVertically){
+       Text("✎",fontSize=22.sp,color=MaterialTheme.colorScheme.primary)
+       Spacer(Modifier.width(15.dp))
+       Text("Bearbeiten",modifier=Modifier.weight(1f),fontWeight=FontWeight.SemiBold)
+       Text("›",fontSize=24.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      }
+      HorizontalDivider(Modifier.padding(horizontal=18.dp),color=MaterialTheme.colorScheme.outline.copy(alpha=.2f))
+      Row(Modifier.fillMaxWidth().clickable{onDelete(n)}.padding(18.dp),verticalAlignment=Alignment.CenterVertically){
+       Text("✕",fontSize=22.sp,color=MaterialTheme.colorScheme.error)
+       Spacer(Modifier.width(15.dp))
+       Text("Löschen",modifier=Modifier.weight(1f),fontWeight=FontWeight.SemiBold,color=MaterialTheme.colorScheme.error)
+       Text("›",fontSize=24.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      }
+     }
+    }
+   }
+  }
+ }
+}
 
 @Composable private fun ProfileList(items:List<NasSettings>,lastSync:Map<String,String>,running:Boolean,current:Int,total:Int,doneBytes:Long,totalBytes:Long,file:String,speed:Long,status:String,onAdd:()->Unit,onEdit:(NasSettings)->Unit,onDelete:(NasSettings)->Unit,onToggle:(NasSettings)->Unit,onRun:(NasSettings)->Unit,onHistory:(NasSettings)->Unit,onCancel:()->Unit){Column(Modifier.fillMaxSize()){Header("Synchronisationen","Ordner, Richtung und Ziel frei verwalten");Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){if(running){
    val fraction=if(total>0)(current.toFloat()/total.toFloat()).coerceIn(0f,1f) else if(totalBytes>0)(doneBytes.toFloat()/totalBytes.toFloat()).coerceIn(0f,1f) else 0f
