@@ -91,8 +91,8 @@ jobs:
           set -euo pipefail
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -f "$APK"
-          TAG="galeriesync-notification-fix-218"
+          TAG="galeriesync-build-${{ github.run_number }}"
           if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --target "$GITHUB_SHA" --title "GalerieSync – Benachrichtigungs-Fix (Build 218)" --notes "Android 13+: Sichere Abfrage der Benachrichtigungsberechtigung. APK mit stabilem GalerieSync-Signaturschlüssel signiert."
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "GalerieSync – Build ${{ github.run_number }}" --notes "GalerieSync APK mit überarbeitetem Synchronisationsfortschritt und stabilem Signaturschlüssel."
           fi
-          gh release upload "$TAG" "$APK#GalerieSync-Build-218.apk" --clobber
+          gh release upload "$TAG" "$APK#GalerieSync-Build-${{ github.run_number }}.apk" --clobber
