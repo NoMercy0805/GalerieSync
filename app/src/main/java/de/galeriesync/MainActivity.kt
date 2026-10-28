@@ -68,7 +68,7 @@ private val Scheme=darkColorScheme(
  primary=Color(0xFF6AA6FF),onPrimary=Color(0xFF071426),
  primaryContainer=Color(0xFF24446F),onPrimaryContainer=Color(0xFFD8E7FF),
  secondary=Color(0xFF43E0A0),onSecondary=Color(0xFF071B13),
- background=Color(0xFF0F1013),surface=Color(0xFF1E1F24),surfaceVariant=Color(0xFF2C2E35),
+ background=Color(0xFF0D0E12),surface=Color(0xFF1C1D23),surfaceVariant=Color(0xFF292B33),
  onBackground=Color(0xFFF5F5F7),onSurface=Color(0xFFF5F5F7),onSurfaceVariant=Color(0xFFC4C6CD),
  outline=Color(0xFF666973),error=Color(0xFFFF6B55)
 )
@@ -76,7 +76,7 @@ private val LightScheme=lightColorScheme(
  primary=Color(0xFF1268FF),onPrimary=Color.White,
  primaryContainer=Color(0xFFE3EDFF),onPrimaryContainer=Color(0xFF0D3C8C),
  secondary=Color(0xFF00A971),onSecondary=Color.White,
- background=Color(0xFFC4CAD3),surface=Color(0xFFFBFBFC),surfaceVariant=Color(0xFFF2F2F5),
+ background=Color(0xFFF6F7FB),surface=Color(0xFFFFFFFF),surfaceVariant=Color(0xFFF0F1F6),
  onBackground=Color(0xFF191A1C),onSurface=Color(0xFF191A1C),onSurfaceVariant=Color(0xFF6E7074),
  outline=Color(0xFFDADADE),error=Color(0xFFF0421F)
 )
@@ -287,42 +287,126 @@ enum class Editor{NONE,NAS,SYNC}
  }
 }
 
-@Composable private fun ProfileList(items:List<NasSettings>,lastSync:Map<String,String>,running:Boolean,current:Int,total:Int,doneBytes:Long,totalBytes:Long,file:String,speed:Long,status:String,onAdd:()->Unit,onEdit:(NasSettings)->Unit,onDelete:(NasSettings)->Unit,onToggle:(NasSettings)->Unit,onRun:(NasSettings)->Unit,onHistory:(NasSettings)->Unit,onCancel:()->Unit){Column(Modifier.fillMaxSize()){Header("Synchronisationen","Ordner, Richtung und Ziel frei verwalten");Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){if(running){
-   val fraction=if(total>0)(current.toFloat()/total.toFloat()).coerceIn(0f,1f) else if(totalBytes>0)(doneBytes.toFloat()/totalBytes.toFloat()).coerceIn(0f,1f) else 0f
-   val completed=current.coerceAtLeast(0)
-   val outstanding=(total-completed).coerceAtLeast(0)
-   Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(22.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)){
-    Column(Modifier.fillMaxWidth().padding(horizontal=18.dp,vertical=24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){
-     Box(Modifier.size(162.dp),contentAlignment=Alignment.Center){
-      CircularProgressIndicator(progress={fraction},modifier=Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.primary,trackColor=MaterialTheme.colorScheme.primary.copy(alpha=.16f),strokeWidth=11.dp)
+@Composable private fun ProfileList(items:List<NasSettings>,lastSync:Map<String,String>,running:Boolean,current:Int,total:Int,doneBytes:Long,totalBytes:Long,file:String,speed:Long,status:String,onAdd:()->Unit,onEdit:(NasSettings)->Unit,onDelete:(NasSettings)->Unit,onToggle:(NasSettings)->Unit,onRun:(NasSettings)->Unit,onHistory:(NasSettings)->Unit,onCancel:()->Unit){
+ val hasCompleted=status.contains("abgeschlossen",ignoreCase=true)
+ val hasError=status.contains("Fehler",ignoreCase=true)||status.contains("unterbrochen",ignoreCase=true)||status.contains("abgebrochen",ignoreCase=true)
+ val fraction=when{
+  running && total>0 -> (current.toFloat()/total.toFloat()).coerceIn(0f,1f)
+  running && totalBytes>0 -> (doneBytes.toFloat()/totalBytes.toFloat()).coerceIn(0f,1f)
+  hasCompleted -> 1f
+  else -> 0f
+ }
+ val percentage=if(hasCompleted&&!running)100 else (fraction*100).toInt().coerceIn(0,100)
+ val title=when{running->"Synchronisierung läuft";hasCompleted->"Synchronisation abgeschlossen";hasError->"Synchronisation unterbrochen";else->"Bereit zur Synchronisation"}
+ Column(Modifier.fillMaxSize()){
+  Column(Modifier.fillMaxWidth().padding(start=24.dp,end=24.dp,top=15.dp,bottom=10.dp)){
+   Text("Synchronisation",fontSize=30.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
+   Text("Deine Fotos. Sicher. Überall.",fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  }
+  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
+   Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(26.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)){
+    Column(Modifier.fillMaxWidth().padding(horizontal=18.dp,vertical=22.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){
+     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){
+      Text("SYNCHRONISIERUNG",fontSize=11.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      Text(if(running)"● Aktiv" else if(hasCompleted)"✓ Fertig" else if(hasError)"● Unterbrochen" else "● Bereit",
+       fontSize=12.sp,color=if(hasCompleted)MaterialTheme.colorScheme.secondary else if(hasError)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+     }
+     Spacer(Modifier.height(4.dp))
+     Box(Modifier.size(190.dp),contentAlignment=Alignment.Center){
+      CircularProgressIndicator(progress={fraction},modifier=Modifier.fillMaxSize(),strokeWidth=11.dp,
+       color=if(hasCompleted&&!running)MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+       trackColor=MaterialTheme.colorScheme.primary.copy(alpha=.14f))
       Column(horizontalAlignment=Alignment.CenterHorizontally){
-       Text("↻",fontSize=48.sp,color=MaterialTheme.colorScheme.primary)
-       if(total>0)Text("${(fraction*100).toInt()} %",fontWeight=FontWeight.Bold,fontSize=16.sp,color=MaterialTheme.colorScheme.onSurface)
+       Text("$percentage%",fontSize=38.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurface)
+       Text(if(hasCompleted&&!running)"Abgeschlossen" else if(running)"Fortschritt" else "Bereit",
+        fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
       }
      }
-     Text("Synchronisiere …",fontSize=22.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurface)
-     Text(if(total>0)"$completed von $total Dateien" else "Dateien werden vorbereitet …",fontSize=16.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     if(total>0)Text("$outstanding offen · $total gesamt",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     if(totalBytes>0)Text("${formatBytes(doneBytes)} von ${formatBytes(totalBytes)} übertragen",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     if(speed>0)Text("Geschwindigkeit: ${formatSpeed(speed)}",fontSize=12.sp,color=MaterialTheme.colorScheme.primary)
-     if(file.isNotBlank()){
-      Surface(modifier=Modifier.fillMaxWidth().padding(top=4.dp),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.55f)){
-       Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){
-        Text("↻",fontSize=22.sp,color=MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)){
-         Text(file,maxLines=2,fontWeight=FontWeight.Medium,color=MaterialTheme.colorScheme.onSurface,fontSize=13.sp)
-         Text("Wird abgeglichen …",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     Text(title,fontSize=21.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurface)
+     Text(if(running&&total>0)"$current von $total Dateien" else if(running)"Dateien werden vorbereitet …" else if(hasCompleted)"Alle Dateien erfolgreich abgeglichen" else status,
+      fontSize=14.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     if(running){
+      Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+       val remain=(total-current).coerceAtLeast(0)
+       SyncMetric(if(total>0)"$remain" else "–","Offen",Modifier.weight(1f))
+       SyncMetric(if(totalBytes>0)formatBytes(doneBytes) else "–","Übertragen",Modifier.weight(1f))
+       SyncMetric(if(speed>0)formatSpeed(speed) else "–","Tempo",Modifier.weight(1f))
+      }
+      if(file.isNotBlank()){
+       Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(17.dp),color=MaterialTheme.colorScheme.surfaceVariant){
+        Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){
+         Icon(Icons.Rounded.PermMedia,contentDescription=null,tint=MaterialTheme.colorScheme.primary)
+         Spacer(Modifier.width(12.dp))
+         Column(Modifier.weight(1f)){
+          Text(file,fontSize=13.sp,maxLines=2,fontWeight=FontWeight.Medium,color=MaterialTheme.colorScheme.onSurface)
+          Text("Wird synchronisiert …",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+         }
+        }
+       }
+      }
+      OutlinedButton(onClick=onCancel,modifier=Modifier.fillMaxWidth().height(48.dp),shape=RoundedCornerShape(25.dp)){
+       Text("Abbrechen",fontWeight=FontWeight.SemiBold)
+      }
+     }
+    }
+   }
+   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+    Text("Meine Synchronisationen",fontSize=19.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
+    Text("${items.count{it.enabled}} aktiv",fontSize=12.sp,color=MaterialTheme.colorScheme.primary)
+   }
+   if(items.isEmpty()){
+    CardBox{
+     Text("Noch keine Synchronisation",fontWeight=FontWeight.Bold)
+     Text("Erstelle ein Profil und wähle deine Ordner aus.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+   }
+   items.forEach{p->
+    Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(24.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)){
+     Column(Modifier.padding(17.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+      Row(verticalAlignment=Alignment.CenterVertically){
+       Surface(shape=RoundedCornerShape(15.dp),color=MaterialTheme.colorScheme.primaryContainer){
+        Box(Modifier.size(50.dp),contentAlignment=Alignment.Center){
+         Icon(Icons.Rounded.PermMedia,contentDescription=null,tint=MaterialTheme.colorScheme.onPrimaryContainer)
+        }
+       }
+       Spacer(Modifier.width(12.dp))
+       Column(Modifier.weight(1f)){
+        Text(p.profileName.ifBlank{syncProfileTitle(p.direction)},fontWeight=FontWeight.Bold,fontSize=17.sp,color=MaterialTheme.colorScheme.onSurface)
+        Text(syncDirectionText(p.direction)+" · "+p.sourceFolders.size+" Ordner",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Text((p.name.ifBlank{p.host})+" → /"+p.remoteFolder,fontSize=11.sp,maxLines=2,color=MaterialTheme.colorScheme.onSurfaceVariant)
+       }
+       Switch(checked=p.enabled,onCheckedChange={onToggle(p)})
+      }
+      lastSync[p.id]?.let{Text("Zuletzt: $it",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+      Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(7.dp)){
+       Button(onClick={onRun(p)},enabled=!running&&p.enabled,modifier=Modifier.weight(1f),shape=RoundedCornerShape(16.dp)){Text("Jetzt synchronisieren",maxLines=1)}
+       OutlinedButton(onClick={onHistory(p)},shape=RoundedCornerShape(16.dp)){Text("Verlauf")}
+       var menu by remember{mutableStateOf(false)}
+       Box{
+        IconButton(onClick={menu=true}){Text("⋮",fontSize=23.sp)}
+        DropdownMenu(expanded=menu,onDismissRequest={menu=false}){
+         DropdownMenuItem(text={Text("Bearbeiten")},onClick={menu=false;onEdit(p)})
+         DropdownMenuItem(text={Text("Löschen",color=MaterialTheme.colorScheme.error)},onClick={menu=false;onDelete(p)})
         }
        }
       }
      }
-     OutlinedButton(onClick=onCancel,modifier=Modifier.fillMaxWidth().padding(top=8.dp).height(48.dp),shape=RoundedCornerShape(24.dp)){
-      Text("Synchronisation abbrechen",fontWeight=FontWeight.SemiBold)
-     }
     }
    }
-  };if(items.isEmpty())CardBox{Text("Noch keine Synchronisation",fontWeight=FontWeight.Bold);Text("Erstelle beliebig viele Profile und wähle pro Profil eigene Ordner.",color=MaterialTheme.colorScheme.onSurfaceVariant)};items.forEach{p->CardBox{Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(p.profileName.ifBlank{syncProfileTitle(p.direction)},fontWeight=FontWeight.Bold);Text(syncDirectionText(p.direction)+" · "+p.sourceFolders.size.toString()+" Ordner",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp);Text((p.name.ifBlank{p.host})+"  →  /"+p.remoteFolder,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp);Text(if(p.enabled)"● Aktiv" else "○ Inaktiv",color=if(p.enabled)MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp);lastSync[p.id]?.let{Text("Zuletzt: $it",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)}};Switch(p.enabled,{onToggle(p)})};var menu by remember{mutableStateOf(false)};Row(verticalAlignment=Alignment.CenterVertically){Button(onClick={onRun(p)},enabled=!running&&p.enabled,modifier=Modifier.weight(1f)){Text("Jetzt synchronisieren")};TextButton(onClick={onHistory(p)}){Text("Verlauf")};Box{TextButton(onClick={menu=true}){Text("⋮",fontSize=22.sp)};DropdownMenu(expanded=menu,onDismissRequest={menu=false}){DropdownMenuItem(text={Text("Bearbeiten")},onClick={menu=false;onEdit(p)});DropdownMenuItem(text={Text("Löschen",color=MaterialTheme.colorScheme.error)},onClick={menu=false;onDelete(p)})}}}}};Button(onClick=onAdd,enabled=true,modifier=Modifier.fillMaxWidth()){Text("+  Neue Synchronisation")}}}}
+   Button(onClick=onAdd,modifier=Modifier.fillMaxWidth().height(50.dp),shape=RoundedCornerShape(18.dp)){
+    Text("+  Neue Synchronisation",fontWeight=FontWeight.SemiBold)
+   }
+  }
+ }
+}
+
+@Composable private fun SyncMetric(value:String,label:String,modifier:Modifier=Modifier){
+ Column(modifier.background(MaterialTheme.colorScheme.surfaceVariant,shape=RoundedCornerShape(15.dp)).padding(vertical=13.dp,horizontal=6.dp),
+  horizontalAlignment=Alignment.CenterHorizontally){
+  Text(value,fontSize=13.sp,fontWeight=FontWeight.Bold,maxLines=1,color=MaterialTheme.colorScheme.onSurface)
+  Text(label,fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+ }
+}
 
 @Composable private fun NasEditor(initial:NasSettings,onBack:()->Unit,onSave:(NasSettings)->Unit){
  var s by remember{mutableStateOf(initial)};var shares by remember{mutableStateOf(emptyList<String>())};var msg by remember{mutableStateOf("")};var ugreenMsg by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var ugreenBusy by remember{mutableStateOf(false)};val scope=rememberCoroutineScope()
