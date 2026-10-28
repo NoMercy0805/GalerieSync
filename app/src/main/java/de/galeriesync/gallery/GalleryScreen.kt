@@ -48,7 +48,7 @@ private data class GalleryFolder(val name:String,val path:String,val count:Int)
 private fun mediaKey(item:GalleryMedia)=item.sourceId+"|"+item.path
 
 @Composable
-fun NasGalleryScreen(profiles:List<NasSettings>){
+fun NasGalleryScreen(profiles:List<NasSettings>,manageOffline:Boolean=false){
     val context=LocalContext.current
     val repo=remember{GalleryRepository(context)}
     val scope=rememberCoroutineScope()
@@ -64,7 +64,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
     var working by remember{mutableStateOf(false)}
     var progressDone by remember{mutableIntStateOf(initialProgress.first)}
     var progressTotal by remember{mutableIntStateOf(initialProgress.second)}
-    var pickerOpen by remember{mutableStateOf(selection==null)}
+    var pickerOpen by remember{mutableStateOf(manageOffline&&selection==null)}
     var deleteOfflineConfirm by remember{mutableStateOf(false)}
     var galleryMenuOpen by remember{mutableStateOf(false)}
     val selected=remember(media,selectedKey){selectedKey?.let{key->media.firstOrNull{mediaKey(it)==key}}}
@@ -133,68 +133,35 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
 
     BackHandler(enabled=folder.isNotBlank()){folder=folder.substringBeforeLast('/',"")}
 
-    Column(Modifier.fillMaxSize()){
-        Row(
-            Modifier.fillMaxWidth().padding(start=24.dp,end=24.dp,top=15.dp,bottom=10.dp),
-            verticalAlignment=Alignment.CenterVertically
-        ){
-            Column(Modifier.weight(1f)){
+    Column(if(manageOffline)Modifier.fillMaxWidth() else Modifier.fillMaxSize()){
+        if(manageOffline){
+            Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(26.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)){
+                Column(Modifier.fillMaxWidth().padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+                        Text("Offline-Galerie",Modifier.weight(1f),fontSize=19.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurface)
+                        Text(if(progressTotal>0)"${(progressDone*100L/progressTotal.coerceAtLeast(1)).coerceIn(0,100)} %" else "Bereit",fontSize=14.sp,color=MaterialTheme.colorScheme.primary)
+                    }
+                    if(progressTotal>0){
+                        LinearProgressIndicator(progress={progressDone.toFloat()/progressTotal.coerceAtLeast(1)},modifier=Modifier.fillMaxWidth().height(8.dp),color=MaterialTheme.colorScheme.primary,trackColor=MaterialTheme.colorScheme.primaryContainer)
+                        Text("$progressDone von $progressTotal Medien offline · $openCount offen",fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    }else if(working)LinearProgressIndicator(modifier=Modifier.fillMaxWidth().height(8.dp))
+                    if(status.isNotBlank())Text(status,fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Button(onClick={startRefresh()},enabled=!working&&selection!=null,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(20.dp)){Text(if(working)"Aktualisierung läuft …" else "Offline-Galerie aktualisieren")}
+                    OutlinedButton(onClick={pickerOpen=true},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(20.dp)){Text(if(selection==null)"Galerie-Ordner wählen" else "Galerie-Ordner ändern")}
+                    if(progressDone>0)TextButton(onClick={deleteOfflineConfirm=true},enabled=!working,modifier=Modifier.fillMaxWidth()){Text("Offline-Daten löschen",color=MaterialTheme.colorScheme.error)}
+                }
+            }
+        }else{
+            Column(Modifier.fillMaxWidth().padding(start=24.dp,end=24.dp,top=15.dp,bottom=10.dp)){
                 Text("Galerie",fontSize=30.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
                 Text("Deine Fotos. Offline verfügbar.",fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if(selection!=null){
-                Box{
-                    IconButton(onClick={galleryMenuOpen=true},modifier=Modifier.size(46.dp)){
-                        Text("⋮",fontSize=27.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    DropdownMenu(expanded=galleryMenuOpen,onDismissRequest={galleryMenuOpen=false}){
-                        DropdownMenuItem(text={Text(if(working)"Aktualisierung läuft" else "Aktualisieren")},onClick={galleryMenuOpen=false;startRefresh()},enabled=!working)
-                        DropdownMenuItem(text={Text("Ordner ändern")},onClick={galleryMenuOpen=false;pickerOpen=true},enabled=profiles.isNotEmpty())
-                        if(progressDone>0)DropdownMenuItem(text={Text("Offline-Daten löschen",color=MaterialTheme.colorScheme.error)},onClick={galleryMenuOpen=false;deleteOfflineConfirm=true},enabled=!working)
-                    }
-                }
-            }else{
-                TextButton(onClick={pickerOpen=true},enabled=profiles.isNotEmpty()){Text("Ordner wählen")}
-            }
-        }
-
-        if(progressTotal>0 || working || status.isNotBlank()){
-            Card(
-                Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=8.dp),
-                shape=RoundedCornerShape(26.dp),
-                colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)
-            ){
-                Column(Modifier.fillMaxWidth().padding(18.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){
-                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
-                        Text("Offline-Galerie",Modifier.weight(1f),fontSize=17.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurface)
-                        if(progressTotal>0){
-                            Text("${(progressDone*100L/progressTotal.coerceAtLeast(1)).coerceIn(0,100)} %",fontSize=14.sp,fontWeight=FontWeight.SemiBold,color=MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    if(progressTotal>0){
-                        LinearProgressIndicator(
-                            progress={progressDone.toFloat()/progressTotal.coerceAtLeast(1)},
-                            modifier=Modifier.fillMaxWidth().height(8.dp),
-                            color=MaterialTheme.colorScheme.primary,
-                            trackColor=MaterialTheme.colorScheme.primaryContainer
-                        )
-                        Text("$progressDone von $progressTotal Medien offline · $openCount offen",
-                            fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    }else if(working){
-                        LinearProgressIndicator(modifier=Modifier.fillMaxWidth().height(8.dp))
-                    }
-                    if(working)Text("Aktualisierung läuft im Hintergrund weiter",fontSize=12.sp,color=MaterialTheme.colorScheme.primary)
-                    if(status.isNotBlank())Text(status,fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)
-                }
-            }
-        }
-
         when{
             selection==null->{
                 Box(Modifier.fillMaxSize().padding(24.dp),contentAlignment=Alignment.TopCenter){
                     Card{Column(Modifier.padding(18.dp)){
                         Text("Galerie-Ordner auswählen",fontWeight=FontWeight.Bold)
-                        Text("Wähle einmal den NAS-Ordner aus, dessen Bilder und Videos in der Galerie erscheinen sollen.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=13.sp)
+                        Text("Wähle den Galerie-Ordner im Synchronisation-Tab aus.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=13.sp)
                         Spacer(Modifier.height(12.dp))
                         Button(onClick={pickerOpen=true},enabled=profiles.isNotEmpty(),modifier=Modifier.fillMaxWidth()){Text("NAS-Ordner auswählen")}
                         if(profiles.isEmpty())Text("Lege zuerst eine Synchronisation mit einer NAS-Verbindung an.",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)
@@ -232,6 +199,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
                     }
                 }
             }
+        }
         }
     }
 
