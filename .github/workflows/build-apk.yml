@@ -44,6 +44,9 @@ jobs:
       - name: Apply auto-sync scheduling fix
         run: python3 .github/patch-autosync.py
 
+      - name: Set increasing Android versionCode
+        run: sed -i -E "s/versionCode = [0-9]+/versionCode = ${{ github.run_number }}/" app/build.gradle.kts
+
       - name: Build debug APK
         id: build
         shell: bash
@@ -93,6 +96,6 @@ jobs:
           test -f "$APK"
           TAG="galeriesync-build-${{ github.run_number }}"
           if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --target "$GITHUB_SHA" --title "GalerieSync – Build ${{ github.run_number }}" --notes "GalerieSync APK mit überarbeitetem Synchronisationsfortschritt und stabilem Signaturschlüssel."
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "GalerieSync – Build ${{ github.run_number }}" --notes "Android-versionCode: ${{ github.run_number }}"
           fi
           gh release upload "$TAG" "$APK#GalerieSync-Build-${{ github.run_number }}.apk" --clobber
