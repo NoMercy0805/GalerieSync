@@ -24,6 +24,11 @@ import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PermMedia
 import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Wifi
@@ -217,7 +222,7 @@ enum class Editor{NONE,NAS,SYNC}
  Column(Modifier.fillMaxSize()){
   Row(Modifier.fillMaxWidth().padding(start=24.dp,end=80.dp,top=18.dp,bottom=16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){
    Text("NAS",fontSize=30.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
-   IconButton(onClick=onAdd,modifier=Modifier.size(48.dp).padding(end=6.dp)){Text("+",fontSize=34.sp,color=MaterialTheme.colorScheme.primary)}
+   Surface(modifier=Modifier.size(46.dp),shape=RoundedCornerShape(15.dp),color=MaterialTheme.colorScheme.primaryContainer){IconButton(onClick=onAdd,modifier=Modifier.fillMaxSize()){Icon(Icons.Rounded.Add,contentDescription="NAS hinzufügen",modifier=Modifier.size(25.dp),tint=MaterialTheme.colorScheme.primary)}}
   }
   Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
    if(items.isEmpty()){
@@ -261,24 +266,24 @@ enum class Editor{NONE,NAS,SYNC}
     Card(modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(26.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)){
      Column{
       Row(Modifier.fillMaxWidth().clickable{onTest(n)}.padding(18.dp),verticalAlignment=Alignment.CenterVertically){
-       Text("↻",fontSize=23.sp,color=MaterialTheme.colorScheme.primary)
+       Icon(Icons.Rounded.Refresh,contentDescription=null,modifier=Modifier.size(24.dp),tint=MaterialTheme.colorScheme.primary)
        Spacer(Modifier.width(15.dp))
        Text(if(info!=null)"Speicher aktualisieren" else "Speicher aktualisieren",modifier=Modifier.weight(1f),fontWeight=FontWeight.SemiBold)
-       Text("›",fontSize=24.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+       Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight,contentDescription=null,modifier=Modifier.size(22.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
       }
       HorizontalDivider(Modifier.padding(horizontal=18.dp),color=MaterialTheme.colorScheme.outline.copy(alpha=.2f))
       Row(Modifier.fillMaxWidth().clickable{onEdit(n)}.padding(18.dp),verticalAlignment=Alignment.CenterVertically){
-       Text("✎",fontSize=22.sp,color=MaterialTheme.colorScheme.primary)
+       Icon(Icons.Rounded.Edit,contentDescription=null,modifier=Modifier.size(24.dp),tint=MaterialTheme.colorScheme.primary)
        Spacer(Modifier.width(15.dp))
        Text("Bearbeiten",modifier=Modifier.weight(1f),fontWeight=FontWeight.SemiBold)
-       Text("›",fontSize=24.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+       Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight,contentDescription=null,modifier=Modifier.size(22.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
       }
       HorizontalDivider(Modifier.padding(horizontal=18.dp),color=MaterialTheme.colorScheme.outline.copy(alpha=.2f))
       Row(Modifier.fillMaxWidth().clickable{onDelete(n)}.padding(18.dp),verticalAlignment=Alignment.CenterVertically){
-       Text("✕",fontSize=22.sp,color=MaterialTheme.colorScheme.error)
+       Icon(Icons.Rounded.DeleteOutline,contentDescription=null,modifier=Modifier.size(24.dp),tint=MaterialTheme.colorScheme.error)
        Spacer(Modifier.width(15.dp))
        Text("Löschen",modifier=Modifier.weight(1f),fontWeight=FontWeight.SemiBold,color=MaterialTheme.colorScheme.error)
-       Text("›",fontSize=24.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+       Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight,contentDescription=null,modifier=Modifier.size(22.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
       }
      }
     }
