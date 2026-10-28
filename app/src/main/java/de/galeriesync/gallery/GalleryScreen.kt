@@ -134,33 +134,60 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
     BackHandler(enabled=folder.isNotBlank()){folder=folder.substringBeforeLast('/',"")}
 
     Column(Modifier.fillMaxSize()){
-        Row(Modifier.fillMaxWidth().padding(start=6.dp,end=18.dp,top=0.dp,bottom=2.dp),verticalAlignment=Alignment.CenterVertically){
+        Row(
+            Modifier.fillMaxWidth().padding(start=24.dp,end=24.dp,top=15.dp,bottom=10.dp),
+            verticalAlignment=Alignment.CenterVertically
+        ){
+            Column(Modifier.weight(1f)){
+                Text("Galerie",fontSize=30.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
+                Text("Deine Fotos. Offline verfügbar.",fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             if(selection!=null){
                 Box{
-                    IconButton(onClick={galleryMenuOpen=true},modifier=Modifier.size(40.dp)){Text("⋮",fontSize=25.sp,color=MaterialTheme.colorScheme.onSurface)}
+                    IconButton(onClick={galleryMenuOpen=true},modifier=Modifier.size(46.dp)){
+                        Text("⋮",fontSize=27.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     DropdownMenu(expanded=galleryMenuOpen,onDismissRequest={galleryMenuOpen=false}){
                         DropdownMenuItem(text={Text(if(working)"Aktualisierung läuft" else "Aktualisieren")},onClick={galleryMenuOpen=false;startRefresh()},enabled=!working)
                         DropdownMenuItem(text={Text("Ordner ändern")},onClick={galleryMenuOpen=false;pickerOpen=true},enabled=profiles.isNotEmpty())
                         if(progressDone>0)DropdownMenuItem(text={Text("Offline-Daten löschen",color=MaterialTheme.colorScheme.error)},onClick={galleryMenuOpen=false;deleteOfflineConfirm=true},enabled=!working)
                     }
                 }
+            }else{
+                TextButton(onClick={pickerOpen=true},enabled=profiles.isNotEmpty()){Text("Ordner wählen")}
             }
-            Column(Modifier.weight(1f)){
-                Text("Galerie",fontSize=30.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
-                Text("Verkleinerte Offline-Medien · ohne Speicherlimit",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
-            }
-            if(selection==null)TextButton(onClick={pickerOpen=true},enabled=profiles.isNotEmpty()){Text("Ordner wählen")}
         }
 
-        if(working&&progressTotal==0)LinearProgressIndicator(Modifier.fillMaxWidth())
-        if(progressTotal>0){
-            LinearProgressIndicator(progress={progressDone.toFloat()/progressTotal.coerceAtLeast(1)},modifier=Modifier.fillMaxWidth().padding(top=2.dp))
-            Text("$progressDone Medien fertig · $openCount offen · $progressTotal gesamt",Modifier.padding(horizontal=18.dp,vertical=5.dp),fontSize=12.sp,fontWeight=FontWeight.SemiBold,color=MaterialTheme.colorScheme.onSurface)
+        if(progressTotal>0 || working || status.isNotBlank()){
+            Card(
+                Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=8.dp),
+                shape=RoundedCornerShape(26.dp),
+                colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)
+            ){
+                Column(Modifier.fillMaxWidth().padding(18.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){
+                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+                        Text("Offline-Galerie",Modifier.weight(1f),fontSize=17.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurface)
+                        if(progressTotal>0){
+                            Text("${(progressDone*100L/progressTotal.coerceAtLeast(1)).coerceIn(0,100)} %",fontSize=14.sp,fontWeight=FontWeight.SemiBold,color=MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    if(progressTotal>0){
+                        LinearProgressIndicator(
+                            progress={progressDone.toFloat()/progressTotal.coerceAtLeast(1)},
+                            modifier=Modifier.fillMaxWidth().height(8.dp),
+                            color=MaterialTheme.colorScheme.primary,
+                            trackColor=MaterialTheme.colorScheme.primaryContainer
+                        )
+                        Text("$progressDone von $progressTotal Medien offline · $openCount offen",
+                            fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    }else if(working){
+                        LinearProgressIndicator(modifier=Modifier.fillMaxWidth().height(8.dp))
+                    }
+                    if(working)Text("Aktualisierung läuft im Hintergrund weiter",fontSize=12.sp,color=MaterialTheme.colorScheme.primary)
+                    if(status.isNotBlank())Text(status,fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)
+                }
+            }
         }
-        if(working){
-            Text("Aktualisierung läuft im Hintergrund weiter",Modifier.padding(horizontal=18.dp,vertical=2.dp),fontSize=11.sp,fontWeight=FontWeight.SemiBold,color=MaterialTheme.colorScheme.primary)
-        }
-        if(status.isNotBlank())Text(status,Modifier.padding(horizontal=18.dp,vertical=4.dp),fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)
 
         when{
             selection==null->{
@@ -197,7 +224,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
                 if(contents.first.isEmpty()&&contents.second.isEmpty()){
                     Box(Modifier.fillMaxSize().padding(24.dp),contentAlignment=Alignment.TopCenter){Text("In diesem Ordner wurden noch keine Bilder oder Videos gefunden.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
                 }else{
-                    LazyVerticalGrid(columns=GridCells.Adaptive(110.dp),modifier=Modifier.fillMaxSize().padding(5.dp),horizontalArrangement=Arrangement.spacedBy(5.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
+                    LazyVerticalGrid(columns=GridCells.Adaptive(155.dp),modifier=Modifier.fillMaxSize().padding(horizontal=16.dp,vertical=10.dp),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
                         items(contents.first,key={"folder:"+it.path},contentType={"folder"}){f->
                             FolderTile(f,folderPreviews[f.path].orEmpty(),repo){folder=f.path}
                         }
@@ -338,8 +365,8 @@ private fun GalleryFolderPicker(profiles:List<NasSettings>,initialSelection:Gall
 private fun FolderTile(folder:GalleryFolder,previewItems:List<GalleryMedia>,repo:GalleryRepository,onClick:()->Unit){
     val previewFiles=previewItems.map{repo.previewFile(it)}.filter{it.exists()}.take(4)
     Card(
-        Modifier.aspectRatio(0.82f).clickable{onClick()},
-        shape=RoundedCornerShape(20.dp),
+        Modifier.aspectRatio(0.94f).clickable{onClick()},
+        shape=RoundedCornerShape(24.dp),
         colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface),
         elevation=CardDefaults.cardElevation(defaultElevation=0.dp)
     ){
@@ -360,9 +387,9 @@ private fun FolderTile(folder:GalleryFolder,previewItems:List<GalleryMedia>,repo
                     }
                 }
             }
-            Column(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=7.dp)){
-                Text(folder.name,fontSize=12.sp,fontWeight=FontWeight.Bold,maxLines=1,overflow=TextOverflow.Ellipsis,color=MaterialTheme.colorScheme.onSurface)
-                Text("${folder.count}",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(Modifier.fillMaxWidth().padding(horizontal=13.dp,vertical=11.dp)){
+                Text(folder.name,fontSize=15.sp,fontWeight=FontWeight.Bold,maxLines=1,overflow=TextOverflow.Ellipsis,color=MaterialTheme.colorScheme.onSurface)
+                Text("${folder.count} Medien",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
