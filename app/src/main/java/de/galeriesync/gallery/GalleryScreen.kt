@@ -146,7 +146,7 @@ fun NasGalleryScreen(profiles:List<NasSettings>){
                 }
             }
             Column(Modifier.weight(1f)){
-                Text("Galerie",fontSize=25.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
+                Text("Galerie",fontSize=30.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
                 Text("Verkleinerte Offline-Medien · ohne Speicherlimit",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
             }
             if(selection==null)TextButton(onClick={pickerOpen=true},enabled=profiles.isNotEmpty()){Text("Ordner wählen")}
@@ -339,7 +339,7 @@ private fun FolderTile(folder:GalleryFolder,previewItems:List<GalleryMedia>,repo
     val previewFiles=previewItems.map{repo.previewFile(it)}.filter{it.exists()}.take(4)
     Card(
         Modifier.aspectRatio(0.82f).clickable{onClick()},
-        shape=RoundedCornerShape(14.dp),
+        shape=RoundedCornerShape(20.dp),
         colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface),
         elevation=CardDefaults.cardElevation(defaultElevation=0.dp)
     ){
@@ -372,7 +372,7 @@ private fun FolderTile(folder:GalleryFolder,previewItems:List<GalleryMedia>,repo
 private fun MediaTile(item:GalleryMedia,repo:GalleryRepository,onClick:()->Unit){
     val preview=repo.previewFile(item)
     val videoReady=!item.video||repo.offlineVideoFile(item).exists()
-    Card(Modifier.aspectRatio(1f).clickable{onClick()},shape=RoundedCornerShape(14.dp)){
+    Card(Modifier.aspectRatio(1f).clickable{onClick()},shape=RoundedCornerShape(20.dp)){
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){
             when{
                 preview.exists()->AsyncImage(model=preview,contentDescription=item.name,modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
