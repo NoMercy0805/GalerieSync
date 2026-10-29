@@ -495,35 +495,41 @@ enum class Editor{NONE,NAS,SYNC}
 
 @Composable private fun SettingsScreen(page:String?,open:(String?)->Unit,onClose:()->Unit){
  val context=LocalContext.current
- Dialog(onDismissRequest=onClose,properties=DialogProperties(usePlatformDefaultWidth=false)){
-  Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),color=MaterialTheme.colorScheme.background){
-   Column(Modifier.fillMaxSize()){
-    Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=18.dp),verticalAlignment=Alignment.CenterVertically){
-     if(page!=null)TextButton(onClick={open(null)}){Text("‹",fontSize=26.sp)}
-     Text(page?:"Einstellungen",Modifier.weight(1f),fontSize=30.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
-     IconButton(onClick=onClose){Text("×",fontSize=26.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+ val currentTitle=when(page){
+  null->"Einstellungen"
+  "WLAN-Einstellungen"->"WLAN & VPN"
+  else->page
+ }
+ ModalWindow(currentTitle,onClose,onBack=if(page!=null)({open(null)}) else null){
+  Column(
+   Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=14.dp,vertical=14.dp),
+   verticalArrangement=Arrangement.spacedBy(12.dp)
+  ){
+   if(page==null){
+    Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(22.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.38f)){
+     Column(Modifier.padding(horizontal=10.dp,vertical=4.dp)){
+      SettingsRow(Icons.Outlined.Palette,"Allgemein","Darstellung, Geschwindigkeit & Benachrichtigungen"){open("Allgemein")}
+      SettingsRow(Icons.Outlined.Wifi,"WLAN & VPN","Vertrauenswürdige WLANs und VPN"){open("WLAN-Einstellungen")}
+      SettingsRow(Icons.Outlined.Schedule,"Automatische Synchronisation","Zeitplan und Hintergrund-Sync"){open("Automatische Synchronisation")}
+      SettingsRow(Icons.Outlined.OutlinedStorage,"Daten & Speicher","Lokale Daten und Speicherhinweise"){open("Daten & Speicher")}
+      SettingsRow(Icons.Outlined.Info,"Über die App","Informationen zu GalerieSync"){open("Über die App")}
+     }
     }
-  Column(Modifier.fillMaxSize().padding(horizontal=16.dp,vertical=12.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
-   if(page!=null){
+   }else{
     when(page){
      "Allgemein"->ThemeSettings()
      "WLAN-Einstellungen"->VpnFallbackSettings(context)
      "Automatische Synchronisation"->AutoSyncSettings(context)
-     "Daten & Speicher"->CardBox{Text("Lokale Daten",color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold);Text("NAS-Zugangsdaten werden verschlüsselt gespeichert. Spiegel-Profile können entfernte Dateien auf der Gegenseite ebenfalls entfernen.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
-     else->CardBox{Text("GalerieSync",color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold,fontSize=20.sp);Text("Version 0.4.0",color=MaterialTheme.colorScheme.onSurfaceVariant);Text("Fotos und Videos zwischen Smartphone und NAS synchronisieren.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
-    }
-   }else{
-    Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surface){
-     Column(Modifier.padding(horizontal=14.dp,vertical=5.dp)){
-    SettingsRow(Icons.Outlined.Palette,"Allgemein","Design, Benachrichtigungen, Sprache"){open("Allgemein")}
-    SettingsRow(Icons.Outlined.Wifi,"WLAN & VPN","Vertrauenswürdige WLANs · VPN-Fallback"){open("WLAN-Einstellungen")}
-    SettingsRow(Icons.Outlined.Schedule,"Automatische Synchronisation","Zeitplan · Hintergrund"){open("Automatische Synchronisation")}
-    SettingsRow(Icons.Outlined.OutlinedStorage,"Daten & Speicher","Speicherorte, Cache, Datenbank"){open("Daten & Speicher")}
-    SettingsRow(Icons.Outlined.Info,"Über die App","GalerieSync · Version 0.4.0"){open("Über die App")}
+     "Daten & Speicher"->CardBox{
+      Text("Lokale Daten",color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold)
+      Text("NAS-Zugangsdaten werden verschlüsselt gespeichert. Spiegel-Profile können entfernte Dateien auf der Gegenseite ebenfalls entfernen.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+     }
+     else->CardBox{
+      Text("GalerieSync",color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold,fontSize=20.sp)
+      Text("Version 0.4.4",color=MaterialTheme.colorScheme.onSurfaceVariant)
+      Text("Fotos und Videos zwischen Smartphone und NAS synchronisieren.",color=MaterialTheme.colorScheme.onSurfaceVariant)
      }
     }
-   }
-  }
    }
   }
  }
