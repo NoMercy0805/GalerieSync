@@ -355,7 +355,6 @@ enum class Editor{NONE,NAS,SYNC}
      }
     }
    }
-   de.galeriesync.gallery.NasGalleryScreen(items,manageOffline=true)
    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
     Text("Meine Synchronisationen",fontSize=19.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
     Text("${items.count{it.enabled}} aktiv",fontSize=12.sp,color=MaterialTheme.colorScheme.primary)
@@ -402,6 +401,7 @@ enum class Editor{NONE,NAS,SYNC}
    Button(onClick=onAdd,modifier=Modifier.fillMaxWidth().height(50.dp),shape=RoundedCornerShape(18.dp)){
     Text("+  Neue Synchronisation",fontWeight=FontWeight.SemiBold)
    }
+   de.galeriesync.gallery.NasGalleryScreen(items,manageOffline=true)
   }
  }
 }
