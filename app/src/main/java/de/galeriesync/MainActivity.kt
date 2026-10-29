@@ -550,20 +550,20 @@ enum class Editor{NONE,NAS,SYNC}
 }
 @Composable private fun SettingsRow(icon:ImageVector,title:String,subtitle:String,onClick:()->Unit){
  Column(Modifier.fillMaxWidth()){
-  Row(Modifier.fillMaxWidth().clickable{onClick()}.padding(horizontal=4.dp,vertical=13.dp),verticalAlignment=Alignment.CenterVertically){
-   Surface(modifier=Modifier.size(34.dp),shape=RoundedCornerShape(9.dp),color=MaterialTheme.colorScheme.primary){
+  Row(Modifier.fillMaxWidth().clickable{onClick()}.padding(horizontal=10.dp,vertical=17.dp),verticalAlignment=Alignment.CenterVertically){
+   Surface(modifier=Modifier.size(46.dp),shape=RoundedCornerShape(15.dp),color=MaterialTheme.colorScheme.primaryContainer){
     Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
-     Icon(icon,contentDescription=null,modifier=Modifier.size(21.dp),tint=MaterialTheme.colorScheme.onPrimary)
+     Icon(icon,contentDescription=null,modifier=Modifier.size(23.dp),tint=MaterialTheme.colorScheme.primary)
     }
    }
    Spacer(Modifier.width(14.dp))
    Column(Modifier.weight(1f)){
-    Text(title,color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold,fontSize=16.sp)
-    Text(subtitle,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=13.sp)
+    Text(title,color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.SemiBold,fontSize=16.sp)
+    Text(subtitle,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)
    }
-   Text("›",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=24.sp)
+   Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight,contentDescription=null,modifier=Modifier.size(22.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
   }
-  HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=0.22f))
+  HorizontalDivider(Modifier.padding(start=70.dp,end=12.dp),color=MaterialTheme.colorScheme.outline.copy(alpha=0.18f))
  }
 }
 private fun syncDirectionText(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektional"}
