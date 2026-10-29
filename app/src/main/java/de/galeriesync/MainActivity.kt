@@ -496,7 +496,7 @@ enum class Editor{NONE,NAS,SYNC}
 @Composable private fun SettingsScreen(page:String?,open:(String?)->Unit,onClose:()->Unit){
  val context=LocalContext.current
  ModalWindow(title=page?:"Einstellungen",onClose=onClose,onBack=if(page!=null){{open(null)}}else null){
-  Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){
+  Column(Modifier.fillMaxSize().padding(horizontal=16.dp,vertical=12.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
    if(page!=null){
     when(page){
      "Allgemein"->ThemeSettings()
@@ -506,11 +506,15 @@ enum class Editor{NONE,NAS,SYNC}
      else->CardBox{Text("GalerieSync",color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold,fontSize=20.sp);Text("Version 0.4.0",color=MaterialTheme.colorScheme.onSurfaceVariant);Text("Fotos und Videos zwischen Smartphone und NAS synchronisieren.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
     }
    }else{
+    Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surface){
+     Column(Modifier.padding(horizontal=14.dp,vertical=5.dp)){
     SettingsRow(Icons.Outlined.Palette,"Allgemein","Design, Benachrichtigungen, Sprache"){open("Allgemein")}
     SettingsRow(Icons.Outlined.Wifi,"WLAN & VPN","Vertrauenswürdige WLANs · VPN-Fallback"){open("WLAN-Einstellungen")}
     SettingsRow(Icons.Outlined.Schedule,"Automatische Synchronisation","Zeitplan · Hintergrund"){open("Automatische Synchronisation")}
     SettingsRow(Icons.Outlined.OutlinedStorage,"Daten & Speicher","Speicherorte, Cache, Datenbank"){open("Daten & Speicher")}
     SettingsRow(Icons.Outlined.Info,"Über die App","GalerieSync · Version 0.4.0"){open("Über die App")}
+     }
+    }
    }
   }
  }
@@ -544,7 +548,24 @@ enum class Editor{NONE,NAS,SYNC}
  }
  if(confirmRemove){AlertDialog(onDismissRequest={confirmRemove=false},title={Text("VPN-Konfiguration entfernen?")},text={Text("Bist du sicher? Die gespeicherte WireGuard-Konfiguration wird aus GalerieSync entfernt.")},confirmButton={TextButton(onClick={config="";store.saveVpnConfig("");message="VPN-Konfiguration entfernt";confirmRemove=false}){Text("Entfernen",color=MaterialTheme.colorScheme.error)}},dismissButton={TextButton(onClick={confirmRemove=false}){Text("Abbrechen")}})}
 }
-@Composable private fun SettingsRow(icon:ImageVector,title:String,subtitle:String,onClick:()->Unit){Card(Modifier.fillMaxWidth().clickable{onClick()},shape=RoundedCornerShape(24.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)){Row(Modifier.padding(18.dp),verticalAlignment=Alignment.CenterVertically){Surface(modifier=Modifier.size(38.dp),shape=RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.primaryContainer.copy(alpha=0.72f),tonalElevation=0.dp){Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){Icon(icon,contentDescription=null,modifier=Modifier.size(21.dp),tint=MaterialTheme.colorScheme.primary)}};Spacer(Modifier.width(14.dp));Column(Modifier.weight(1f)){Text(title,color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold,fontSize=16.sp);Text(subtitle,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)};Text("›",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=26.sp)}}}
+@Composable private fun SettingsRow(icon:ImageVector,title:String,subtitle:String,onClick:()->Unit){
+ Column(Modifier.fillMaxWidth()){
+  Row(Modifier.fillMaxWidth().clickable{onClick()}.padding(horizontal=4.dp,vertical=13.dp),verticalAlignment=Alignment.CenterVertically){
+   Surface(modifier=Modifier.size(34.dp),shape=RoundedCornerShape(9.dp),color=MaterialTheme.colorScheme.primary){
+    Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
+     Icon(icon,contentDescription=null,modifier=Modifier.size(21.dp),tint=MaterialTheme.colorScheme.onPrimary)
+    }
+   }
+   Spacer(Modifier.width(14.dp))
+   Column(Modifier.weight(1f)){
+    Text(title,color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold,fontSize=16.sp)
+    Text(subtitle,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=13.sp)
+   }
+   Text("›",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=24.sp)
+  }
+  HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=0.22f))
+ }
+}
 private fun syncDirectionText(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektional"}
 private fun syncProfileTitle(d:SyncDirection)=when(d){SyncDirection.PHONE_TO_NAS->"Handy → NAS";SyncDirection.NAS_TO_PHONE->"NAS → Handy";SyncDirection.BIDIRECTIONAL->"Bidirektionale Synchronisation"}
 @Composable private fun AutoSyncSettings(context:android.content.Context){
