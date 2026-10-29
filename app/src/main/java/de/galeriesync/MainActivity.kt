@@ -220,9 +220,9 @@ enum class Editor{NONE,NAS,SYNC}
 
 @Composable private fun NasList(items:List<NasSettings>,testStates:Map<String,Boolean>,storage:Map<String,SmbStorageInfo>,updated:Map<String,Long>,onAdd:()->Unit,onEdit:(NasSettings)->Unit,onDelete:(NasSettings)->Unit,onTest:(NasSettings)->Unit){
  Column(Modifier.fillMaxSize()){
-  Row(Modifier.fillMaxWidth().padding(start=24.dp,end=80.dp,top=18.dp,bottom=16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){
+  Row(Modifier.fillMaxWidth().padding(start=24.dp,end=24.dp,top=18.dp,bottom=16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){
    Text("NAS",fontSize=30.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
-   Surface(modifier=Modifier.size(42.dp),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surfaceVariant){IconButton(onClick=onAdd,modifier=Modifier.fillMaxSize()){Icon(Icons.Rounded.Add,contentDescription="NAS hinzufügen",modifier=Modifier.size(25.dp),tint=MaterialTheme.colorScheme.primary)}}
+   FilledTonalButton(onClick=onAdd,shape=RoundedCornerShape(18.dp),contentPadding=PaddingValues(horizontal=14.dp,vertical=10.dp)){Icon(Icons.Rounded.Add,contentDescription=null,modifier=Modifier.size(20.dp));Spacer(Modifier.width(5.dp));Text("Hinzufügen",fontSize=13.sp,fontWeight=FontWeight.SemiBold)}
   }
   Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
    if(items.isEmpty()){
@@ -495,7 +495,14 @@ enum class Editor{NONE,NAS,SYNC}
 
 @Composable private fun SettingsScreen(page:String?,open:(String?)->Unit,onClose:()->Unit){
  val context=LocalContext.current
- ModalWindow(title=page?:"Einstellungen",onClose=onClose,onBack=if(page!=null){{open(null)}}else null){
+ Dialog(onDismissRequest=onClose,properties=DialogProperties(usePlatformDefaultWidth=false)){
+  Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),color=MaterialTheme.colorScheme.background){
+   Column(Modifier.fillMaxSize()){
+    Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=18.dp),verticalAlignment=Alignment.CenterVertically){
+     if(page!=null)TextButton(onClick={open(null)}){Text("‹",fontSize=26.sp)}
+     Text(page?:"Einstellungen",Modifier.weight(1f),fontSize=30.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onBackground)
+     IconButton(onClick=onClose){Text("×",fontSize=26.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+    }
   Column(Modifier.fillMaxSize().padding(horizontal=16.dp,vertical=12.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
    if(page!=null){
     when(page){
@@ -515,6 +522,8 @@ enum class Editor{NONE,NAS,SYNC}
     SettingsRow(Icons.Outlined.Info,"Über die App","GalerieSync · Version 0.4.0"){open("Über die App")}
      }
     }
+   }
+  }
    }
   }
  }
